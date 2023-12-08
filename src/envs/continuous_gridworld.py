@@ -40,7 +40,7 @@ class ContinuousGridWorld(gym.Env):
 
     def _step(self, action):
         assert hasattr(self, 'position'), "Environment not initialized"
-        assert self.action_space.contains(action), "Invalid action"
+        assert np.all(np.abs(action) <= 1), "Invalid action (action should be in [-1, 1])"
 
         if not isinstance(action, np.ndarray):
             action = np.array(action, dtype=np.float32)
@@ -115,6 +115,13 @@ class DiscreetContinuousGridWorld(ContinuousGridWorld):
         super().__init__(*args, **kwargs)
         self.action_space = spaces.Discrete(9)
         
+        self._discreet_to_continuous = {i: np.array((np.cos(i * np.pi / 4), np.sin(i * np.pi / 4))) for i in range(8)}
+        self._discreet_to_continuous[8] = np.array((0., 0.))
 
     def step(self, action):
-        return self._step(self.discretize_action(action))
+        return self._step(self._discretize_action(action))
+    
+    def _discretize_action(self, action):
+        action = self._discreet_to_continuous[action]
+        print(action)
+        return action
