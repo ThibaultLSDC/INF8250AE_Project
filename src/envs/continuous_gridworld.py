@@ -9,11 +9,14 @@ class ContinuousGridWorld(gym.Env):
                  size=(5, 5),
                  max_steps=1000,
                  render_mode='human',
+                 wall_position=((2.5, 0), (2.5, 4)),
                  ):
 
         self.size = np.array(size)
         self.goal = np.array(size, dtype=np.float32) - 1
         self.max_steps = max_steps
+
+        self.wall_position = np.array(wall_position)
 
         # Rendering
         self.render_mode = render_mode
@@ -31,6 +34,7 @@ class ContinuousGridWorld(gym.Env):
 
     def reset(self):
         self.position = self.observation_space.sample().astype(np.float32).clip(0, self.goal)
+        self.position = np.ones_like(self.position) * 0.5
         self.steps = 0
         return self._get_obs()
 
@@ -81,6 +85,23 @@ class ContinuousGridWorld(gym.Env):
             action[1] = -self.position[1]
         elif n_y > self.size[1]:
             action[1] = self.size[1] - self.position[1]
+
+        # Wall collision
+        A = self.wall_position[0]
+        B = self.wall_position[1]
+        C = self.position
+        D = self.position + action
+
+        det = (A[0] - B[0]) * (D[1] - C[1]) - (A[1] - B[1]) * (D[0] - C[0])
+        if det != 0:
+            root1 = ((D[1] - C[1]) * (D[0] - B[0]) - (D[0] - C[0]) * (D[1] - B[1])) / det
+            root2 = ((A[0] - B[0]) * (D[1] - B[1]) - (A[1] - B[1]) * (D[0] - B[0])) / det
+            if 0 <= root1 <= 1 and 0 <= root2 <= 1:
+                if self.position[0] < self.wall_position[0][0]:
+                    action[0] = self.wall_position[0][0] - self.position[0] - 6/50
+                else:
+                    action[0] = self.wall_position[0][0] - self.position[0] + 6/50
+                action[0] = 0
         return action
 
     def _render_frame(self):
@@ -94,8 +115,14 @@ class ContinuousGridWorld(gym.Env):
         canvas.fill((255, 255, 255))
         # Goal
         pg.draw.rect(canvas, (0, 0, 255), pg.Rect((int(self.goal[0] * 50), int(self.goal[1] * 50)), (50, 50)))
+        # Wall
+        x = int(self.wall_position[0][0] * 50 -2)
+        y = int(self.wall_position[0][1] * 50)
+        height = int(self.wall_position[1][1] - self.wall_position[0][1]) * 50
+        width = 4
+        pg.draw.rect(canvas, (0, 0, 0), pg.Rect((x, y), (width, height)))
         # Agent
-        pg.draw.circle(canvas, (255, 0, 0), (self.position*50).astype(int), 10)
+        pg.draw.circle(canvas, (255, 0, 0), (self.position*50).astype(int), 4)
         canvas = pg.transform.rotate(canvas, 90)
 
         if self.render_mode == 'human':
