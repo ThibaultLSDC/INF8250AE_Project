@@ -6,16 +6,13 @@ import pygame as pg
 
 class ContinuousGridWorld(gym.Env):
     def __init__(self,
-                 size=(10, 10),
-                 start=(0, 0),
-                 goal=(9, 9),
+                 size=(5, 5),
                  max_steps=1000,
                  render_mode='human',
                  ):
 
         self.size = np.array(size)
-        self.start = np.array(start, dtype=np.float32)
-        self.goal = np.array(goal, dtype=np.float32)
+        self.goal = np.array(size, dtype=np.float32) - 1
         self.max_steps = max_steps
 
         # Rendering
@@ -30,7 +27,6 @@ class ContinuousGridWorld(gym.Env):
         # Action space
         self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
-        assert self.observation_space.contains(self.start), "Invalid start position"
         assert self.observation_space.contains(self.goal), "Invalid goal position"
 
     def reset(self):
@@ -75,7 +71,7 @@ class ContinuousGridWorld(gym.Env):
         return np.all(self.position >= self.goal)
     
     def _update_action(self, action):
-        action = action / 10
+        action = action / 5
         n_x, n_y = self.position + action
         if n_x < 0:
             action[0] = -self.position[0]
@@ -110,7 +106,7 @@ class ContinuousGridWorld(gym.Env):
         return np.transpose(np.array(pg.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
 
 
-class DiscreetContinuousGridWorld(ContinuousGridWorld):
+class DiscreteContinuousGridWorld(ContinuousGridWorld):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_space = spaces.Discrete(9)
@@ -123,5 +119,4 @@ class DiscreetContinuousGridWorld(ContinuousGridWorld):
     
     def _discretize_action(self, action):
         action = self._discreet_to_continuous[action]
-        print(action)
         return action
