@@ -7,8 +7,8 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 
-# Tabular dyna-Q class
-class Tabular_DynaQ():
+# Tabular dyna-Q_plus class
+class Tabular_DynaQ_plus():
   """
   Tabular dyna-Q steps
   1. Take step in env
@@ -17,7 +17,7 @@ class Tabular_DynaQ():
   4. Planning
   """
 
-  def __init__(self, env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5):
+  def __init__(self, env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, kappa = 0.001):
         self.env = env
         self.step_size = step_size  # Learning rate
         self.discount = discount  # Discount factor
@@ -30,6 +30,8 @@ class Tabular_DynaQ():
         # Initialize Q-table and model
         self.q_table = np.zeros((self.state_space_size, self.action_space_size))
         self.model = self.reset_model()
+        self.time_since_last_visit = np.zeros((self.state_space_size, self.action_space_size), dtype=int)
+        self.kappa = kappa
 
   def eps_greedy_policy(self, current_state):
     """
@@ -110,9 +112,11 @@ class Tabular_DynaQ():
     """
 
     for steps in range(self.planning_steps):
-      rnd_sample = random.choice(list(self.model.keys()))
-      state, action = rnd_sample
-      current_state, reward = self.model[rnd_sample]
+      exploration_bonus_reward = self.kappa*np.sqrt(self.time_since_last_visit)
+      q_table_with_exploration_bonus_reward = self.q_table + exploration_bonus_reward
+      sample = np.unravel_index(q_table_with_exploration_bonus_reward.argmax(), q_table_with_exploration_bonus_reward.shape)
+      state, action = sample
+      current_state, reward = self.model[sample]
       self.q_table_update(state, action, reward, current_state) # , done
 
   def training(self, env, num_episodes):
@@ -157,6 +161,11 @@ class Tabular_DynaQ():
         total_reward_per_episode += reward
         nb_steps_per_episode += 1.0
 
+        # Increase all state-action pairs by 1
+        self.time_since_last_visit += 1
+        # Reset the last visited state-action pair
+        self.time_since_last_visit[current_state, action] = 0
+        
       total_rewards.append(total_reward_per_episode)
       nb_steps_episodes.append(nb_steps_per_episode)
     return total_rewards, nb_steps_episodes
@@ -165,7 +174,7 @@ class Tabular_DynaQ():
 # Create test gym environment
 # Example usage with CartPole environment
 env = gym.make("CliffWalking-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-dyna_q_agent = Tabular_DynaQ(env)
+dyna_q_agent = Tabular_DynaQ_plus(env)
 dyna_q_agent.training(env, num_episodes=100)
 
 

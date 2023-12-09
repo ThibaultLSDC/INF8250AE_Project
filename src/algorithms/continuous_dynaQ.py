@@ -7,8 +7,14 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 
-# Tabular dyna-Q class
-class Tabular_DynaQ():
+"""
+Not sure about the following
+-> Initialize q-network
+"""
+
+
+# Continuous dyna-Q class
+class Continuous_DynaQ():
   """
   Tabular dyna-Q steps
   1. Take step in env
@@ -17,7 +23,7 @@ class Tabular_DynaQ():
   4. Planning
   """
 
-  def __init__(self, env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5):
+  def __init__(self, env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, learning_rate=1e-3, model_capacity = 10000):
         self.env = env
         self.step_size = step_size  # Learning rate
         self.discount = discount  # Discount factor
@@ -27,9 +33,34 @@ class Tabular_DynaQ():
         self.state_space_size = env.observation_space.n
         self.action_space_size = env.action_space.n
 
-        # Initialize Q-table and model
-        self.q_table = np.zeros((self.state_space_size, self.action_space_size))
-        self.model = self.reset_model()
+        # Initialize q-network and model
+        # self.model = self.reset_model()
+        self.model = []
+        self.model_capacity = model_capacity
+        # Neural network parameters
+        self.learning_rate = learning_rate
+        # Not sure about the line below !!!!!!!!!!!!!!!!!
+        self.q_network = self.build_network(self.state_space_size, self.action_space_size)
+        self.opt = torch.optim.Adam(self.network_parameters(), lr=self.learning_rate)
+        # Not sure what would be the network_parameters here.
+
+  def build_network(self, state_space_size, action_space_size):
+    """
+    Builds a neural network that maps observations to Q-values for each action.
+    
+    Input:
+      state_space_size (matrix): Dimensions of the state space
+      action_space_size (int): Size of the action space
+    """
+    input_dimension = state_space_size.shape[0]
+    output_dimension = action_space_size.n
+    return torch.nn.Sequential(
+        torch.nn.Linear(input_dimension, 256),
+        torch.nn.ReLU(),
+        torch.nn.Linear(256, 256),
+        torch.nn.ReLU(),
+        torch.nn.Linear(256, output_dimension),
+    )
 
   def eps_greedy_policy(self, current_state):
     """
@@ -43,16 +74,18 @@ class Tabular_DynaQ():
     """
     probability = np.random.random()
     if probability < self.epsilon: # Do random action with probability p
-      step_action =random.choice((0,self.action_space_size))
+      step_action = random.choice((0,self.action_space_size))
     else: # Exploit optimal action with probability 1-p
-      step_action = np.argmax(self.q_table[current_state,:])
+      state_tensor = torch.tensor(current_state, dtype=torch.float32)
+      q_values = self.q_network(state_tensor).item()
+      step_action = int(torch.argmax(q_values).cpu().detach().numpy())
     # --------------------------------
     return step_action
   
 
-  def q_table_update(self, prev_state, prev_action, prev_reward, current_state): # , done # Only if we need to treat terminal states
+  def q_network_update(self, prev_state, prev_action, prev_reward, current_state): # , done # Only if we need to treat terminal states
     """
-    Q-table update
+    Q-network update
    
     Input:
       prev_state (int): State the agent was previously in
@@ -65,30 +98,20 @@ class Tabular_DynaQ():
       num_episodes (int): Number of iterations for training
     """
 
-    update_action = np.argmax(self.q_table[current_state,:])
+    # update_action = np.argmax(self.q_table[current_state,:])
 
-    self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state, update_action]-self.q_table[prev_state, prev_action])
+    # self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state, update_action]-self.q_table[prev_state, prev_action])
+
+    prev_state_tensor = torch.tensor(prev_state, dtype=torch.float32)
+    current_state_tensor = torch.tensor(current_state, dtype=torch.float32)
+    targets = prev_reward + self.discount*(torch.max(self.q_network(current_state_tensor), dim=1)[0])
+    loss = nn.MSELoss()(self.q_network_update(prev_state_tensor), targets)
+    self.opt.zero_grad()
+    loss.backward()
+    self.opt.step()
 
     # TBD if we need to treat terminal states
-    # if done == True:
-    #   self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*0-self.q_table[prev_state, prev_action])
-    # else: # Essentially if done == False
-    #   self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state, update_action]-self.q_table[prev_state, prev_action])
-
-  def reset_model(self):
-    """
-    Reset the model
-
-    Returns:
-      model (dict): Model of the env with (state, action) 
-        as keys and (reward, next_state)
-    """
-
-    model = dict()
-    for state in range(self.state_space_size):
-      for action in range(self.action_space_size):
-        model[state, action] = (0,0)
-    return model
+    # targets = prev_reward + self.discount*(torch.max(self.q_network, dim=1)[0])*(1-terminated)
 
   def model_update(self, state, action, reward, next_state):
     """
@@ -101,8 +124,10 @@ class Tabular_DynaQ():
       current_state (int): State the agent will be in
 
     """
-
-    self.model[state, action] = (reward, next_state)
+    if len(self.model) < self.model_capacity:
+      self.model.append((state, action, reward, next_state))
+    else: # Replace an element of the model
+      self.model[random.choice(range(len(self.model)))] = (state, action, reward, next_state)
 
   def planning(self):
     """
@@ -113,7 +138,7 @@ class Tabular_DynaQ():
       rnd_sample = random.choice(list(self.model.keys()))
       state, action = rnd_sample
       current_state, reward = self.model[rnd_sample]
-      self.q_table_update(state, action, reward, current_state) # , done
+      self.q_network_update(state, action, reward, current_state) # , done
 
   def training(self, env, num_episodes):
     """
@@ -147,7 +172,7 @@ class Tabular_DynaQ():
         current_state, reward, terminated, truncated,_ = env.step(action)
         done = terminated or truncated
         # Update Q-table
-        self.q_table_update(state, action, reward, current_state) # , done
+        self.q_network_update(state, action, reward, current_state) # , done
         # Update model
         self.model_update(state, action, reward, current_state)
         # Planning
@@ -164,8 +189,8 @@ class Tabular_DynaQ():
 
 # Create test gym environment
 # Example usage with CartPole environment
-env = gym.make("CliffWalking-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-dyna_q_agent = Tabular_DynaQ(env)
+env = gym.make("Pendulum-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
+dyna_q_agent = Continuous_DynaQ(env)
 dyna_q_agent.training(env, num_episodes=100)
 
 
