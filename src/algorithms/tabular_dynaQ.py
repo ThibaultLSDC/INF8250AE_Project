@@ -169,3 +169,6 @@ dyna_q_agent = Tabular_DynaQ(env)
 dyna_q_agent.training(env, num_episodes=100)
 
 
+# Graph of the accumulated reward and have a vertical line when does he discover the objective reward for the first time
+# After train take argmax of Q-table for each state to get the action and don't update the Q-table
+

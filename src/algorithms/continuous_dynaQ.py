@@ -35,8 +35,8 @@ class Continuous_DynaQ():
 
         # Initialize q-network and model
         # self.model = self.reset_model()
-        self.model = []
-        self.model_capacity = model_capacity
+        self.model = [] # self.buffer instead
+        self.model_capacity = model_capacity # Use neural network for this
         # Neural network parameters
         self.learning_rate = learning_rate
         # Not sure about the line below !!!!!!!!!!!!!!!!!
@@ -134,8 +134,8 @@ class Continuous_DynaQ():
     Plans 'planning_steps' ahead
     """
 
-    for steps in range(self.planning_steps):
-      rnd_sample = random.choice(list(self.model.keys()))
+    for steps in range(self.planning_steps): # Regression gradient descent for self.model
+      rnd_sample = random.choice(list(self.model.keys())) 
       state, action = rnd_sample
       current_state, reward = self.model[rnd_sample]
       self.q_network_update(state, action, reward, current_state) # , done
