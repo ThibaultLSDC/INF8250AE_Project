@@ -118,10 +118,12 @@ class Continuous_DynaQ():
       current_state (int): State the agent will be in
 
     """
-    if len(self.model) < self.model_capacity:
-      self.model.append((state, action, reward, next_state))
-    else: # Replace an element of the model
-      self.model[random.choice(range(len(self.model)))] = (state, action, reward, next_state)
+
+    # if len(self.model) < self.model_capacity:
+    #   self.model.append((state, action, reward, next_state))
+    # else: # Replace an element of the model
+    #   self.model[random.choice(range(len(self.model)))] = (state, action, reward, next_state)
+
 
     targets = self.model()
 
@@ -136,9 +138,7 @@ class Continuous_DynaQ():
     """
 
     for steps in range(self.planning_steps): # Regression gradient descent for self.model
-      rnd_sample = random.choice(list(self.model.keys())) 
-      state, action = rnd_sample
-      current_state, reward = self.memory[rnd_sample]
+      state, action, reward, current_state = random.choice(self.memory) 
       self.q_network_update(state, action, reward, current_state) # , done
 
   def training(self, env, num_episodes):
@@ -176,6 +176,9 @@ class Continuous_DynaQ():
         self.q_network_update(state, action, reward, current_state) # , done
         # Update model
         self.model_update(state, action, reward, current_state)
+
+        # self.remember(statem action, rewrd, next_state)
+        # self.experience_replay()
         
         # Update state for next iteration
         state = current_state
@@ -193,8 +196,8 @@ class Continuous_DynaQ():
 
 # Create test gym environment
 # Example usage with CartPole environment
-env = gym.make("Pendulum-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-dyna_q_agent = Continuous_DynaQ(env)
-dyna_q_agent.training(env, num_episodes=100)
+# env = gym.make("Pendulum-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
+# dyna_q_agent = Continuous_DynaQ(env)
+# dyna_q_agent.training(env, num_episodes=100)
 
 
