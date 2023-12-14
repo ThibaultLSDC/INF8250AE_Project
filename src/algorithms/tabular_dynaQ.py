@@ -178,7 +178,7 @@ class Tabular_DynaQ():
 
         # Save data
         file_path = "C:/Users/nicle/OneDrive/Bureau/Automne 2023/INF8250AE - Reinforcement learning/INF8250AE_Project/src/graph_data/tabular_DynaQ.json"
-        data = {"total_rewards":total_reward_per_episode, "nb_steps_episodes":nb_steps_episodes}
+        data = {"total_rewards":total_rewards, "nb_steps_episodes":nb_steps_episodes}
         with open(file_path, "w") as json_file:
             json.dump(data, json_file)
 
