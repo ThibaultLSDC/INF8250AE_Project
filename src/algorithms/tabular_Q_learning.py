@@ -11,27 +11,18 @@ import json
 from collections import defaultdict
 
 # Tabular dyna-Q class
-class Tabular_DynaQ():
-    """
-    Tabular dyna-Q steps
-    1. Take step in env
-    2. Direct RL
-    3. Model-learning
-    4. Planning
-    """
+class Tabular_Q_learning():
 
-    def __init__(self, env: gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5):
+    def __init__(self, env: gym.Env, step_size=0.1, discount=0.9, epsilon=0.1):
             self.env = env
             self.step_size = step_size  # Learning rate
             self.discount = discount  # Discount factor
             self.epsilon = epsilon  # Exploration-exploitation trade-off
-            self.planning_steps = planning_steps  # Number of planning steps for model updates
 
             self.action_space_size = env.action_space.n
 
-            # Initialize Q-table and model
+            # Initialize Q-table
             self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
-            self.model = self.reset_model()
 
     def eps_greedy_policy(self, current_state):
         """
@@ -76,44 +67,7 @@ class Tabular_DynaQ():
         # else: # Essentially if done == False
         #   self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state, update_action]-self.q_table[prev_state, prev_action])
 
-    def reset_model(self):
-        """
-        Reset the model
-
-        Returns:
-        model (defaultdict): Model of the env with (state, action)
-            as keys and (reward, next_state)
-        """
-        null_state = tuple(np.zeros(self.env.observation_space.shape, dtype=self.env.observation_space.dtype))
-        model = defaultdict(lambda: [(0., null_state) for _ in range(self.env.action_space.n)])
-        return model
-
-    def model_update(self, state, action, reward, next_state):
-        """
-        Model update
-
-        Input:
-        prev_state (int): State the agent is currently in
-        prev_action (int): Action the agent just took
-        prev_reward (int): Reward the agent just got
-        current_state (int): State the agent will be in
-
-        """
-
-        self.model[state][action] = (reward, next_state)
-
-    def planning(self):
-        """
-        Plans 'planning_steps' ahead
-        """
-
-        for steps in range(self.planning_steps):
-            rnd_state = random.choice(list(self.model.keys()))
-            action = random.randint(0, self.action_space_size - 1)
-            reward, current_state = self.model[rnd_state][action]
-            self.q_table_update(rnd_state, action, reward, current_state) # , done
-
-    def training(self, num_steps=100):
+    def training(self, num_steps: int = 100):
         """
         Agent training loop
 
@@ -140,10 +94,6 @@ class Tabular_DynaQ():
                 done = terminated or truncated
                 # Update Q-table
                 self.q_table_update(state, action, reward, current_state) # , done
-                # Update model
-                self.model_update(state, action, reward, current_state)
-                # Planning
-                self.planning()
                 # Update state for next iteration
                 state = current_state
     
@@ -166,8 +116,6 @@ class Tabular_DynaQ():
                 # Take step
                 current_state, reward, terminated, truncated,_ = self.env.step(action)
                 done = terminated or truncated
-                # Planning
-                self.planning()
                 # Update state for next iteration
                 state = current_state
                 total_reward_per_episode += reward
@@ -177,23 +125,33 @@ class Tabular_DynaQ():
             nb_steps_episodes.append(nb_steps_per_episode)
 
         # Save data
-        file_path = "C:/Users/nicle/OneDrive/Bureau/Automne 2023/INF8250AE - Reinforcement learning/INF8250AE_Project/src/graph_data/tabular_DynaQ.json"
+        file_path = "C:/Users/nicle/OneDrive/Bureau/Automne 2023/INF8250AE - Reinforcement learning/INF8250AE_Project/src/graph_data/tabular_Q_learning.json"
         data = {"total_rewards":total_reward_per_episode, "nb_steps_episodes":nb_steps_episodes}
         with open(file_path, "w") as json_file:
             json.dump(data, json_file)
 
         return total_rewards, nb_steps_episodes
 
+# data = {
+#     "name": "John",
+#     "age": 30,
+#     "city": "New York"
+# }
+
+# # Specify the file name
+# filename = "data.json"
+
+# # Use json.dump() to write data to the file
+# with open(filename, "w") as json_file:
+#     json.dump(data, json_file)
 
 
+# # Specify the file name
+# filename = "data.json"
 
-# Create test gym environment
-# Example usage with CartPole environment
-# env = gym.make("CliffWalking-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-# dyna_q_agent = Tabular_DynaQ(env)
-# dyna_q_agent.training(env, num_episodes=100)
+# # Use json.load() to read data from the file
+# with open(filename, "r") as json_file:
+#     loaded_data = json.load(json_file)
 
-
-# Graph of the accumulated reward and have a vertical line when does he discover the objective reward for the first time
-# After train take argmax of Q-table for each state to get the action and don't update the Q-table
-
+# # Now, loaded_data contains the data from the JSON file
+# print(loaded_data)
