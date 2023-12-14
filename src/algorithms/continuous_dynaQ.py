@@ -7,11 +7,6 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 
-"""
-Not sure about the following
--> Initialize q-network
-"""
-
 
 # Continuous dyna-Q class
 class Continuous_DynaQ():
@@ -23,7 +18,9 @@ class Continuous_DynaQ():
   4. Planning
   """
 
-  def __init__(self, env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, learning_rate=1e-3, model_capacity = 10000):
+  def __init__(self, env:gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, 
+        q_learning_rate=1e-3, model_learning_rate=1e-3, memory_capacity=10000, batch_size=32):
+        
         self.env = env
         self.step_size = step_size  # Learning rate
         self.discount = discount  # Discount factor
@@ -33,16 +30,32 @@ class Continuous_DynaQ():
         self.state_space_size = env.observation_space.n
         self.action_space_size = env.action_space.n
 
-        # Initialize q-network and model
-        # self.model = self.reset_model()
-        self.model = [] # self.buffer instead
-        self.model_capacity = model_capacity # Use neural network for this
-        # Neural network parameters
-        self.learning_rate = learning_rate
-        # Not sure about the line below !!!!!!!!!!!!!!!!!
-        self.q_network = self.build_network(self.state_space_size, self.action_space_size)
-        self.opt = torch.optim.Adam(self.network_parameters(), lr=self.learning_rate)
-        # Not sure what would be the network_parameters here.
+        # Initialize Q-value neural network
+        self.q_learning_rate = q_learning_rate
+        self.q_network = torch.nn.Sequential(
+          torch.nn.Linear(self.state_space_size[0], 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, self.action_space_size[0])
+        )
+        self.q_opt = torch.optim.Adam(self.q_network.parameters(), lr=self.q_learning_rate)
+        
+        # Initialize model neural network
+        self.model_learning_rate = model_learning_rate
+        self.model_network = torch.nn.Sequential(
+          torch.nn.Linear(self.state_space_size[0]+self.action_space_size[0], 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, self.state_space_size[0])
+        )
+        self.model_opt = torch.optim.Adam(self.model_network.parameters(), lr=self.model_learning_rate)
+        
+        self.memory = []
+
+        self.memory_capacity = memory_capacity
+        self.batch_size = batch_size
 
   def build_network(self, state_space_size, action_space_size):
     """

@@ -7,6 +7,8 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 
+from collections import defaultdict
+
 # Tabular dyna-Q_plus class
 class Tabular_DynaQ_plus():
   """
@@ -17,7 +19,7 @@ class Tabular_DynaQ_plus():
   4. Planning
   """
 
-  def __init__(self, env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, kappa = 0.001):
+  def __init__(self, env:gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, kappa = 0.001):
         self.env = env
         self.step_size = step_size  # Learning rate
         self.discount = discount  # Discount factor
@@ -28,7 +30,7 @@ class Tabular_DynaQ_plus():
         self.action_space_size = env.action_space.n
 
         # Initialize Q-table and model
-        self.q_table = np.zeros((self.state_space_size, self.action_space_size))
+        self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
         self.model = self.reset_model()
         self.time_since_last_visit = np.zeros((self.state_space_size, self.action_space_size), dtype=int)
         self.kappa = kappa
@@ -45,7 +47,7 @@ class Tabular_DynaQ_plus():
     """
     probability = np.random.random()
     if probability < self.epsilon: # Do random action with probability p
-      step_action =random.choice((0,self.action_space_size))
+      step_action = self.env.action_space.sample()
     else: # Exploit optimal action with probability 1-p
       step_action = np.argmax(self.q_table[current_state,:])
     # --------------------------------
@@ -69,8 +71,8 @@ class Tabular_DynaQ_plus():
 
     update_action = np.argmax(self.q_table[current_state,:])
 
-    self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state, update_action]-self.q_table[prev_state, prev_action])
-
+    self.q_table[prev_state][prev_action] = self.q_table[prev_state][prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state][update_action]-self.q_table[prev_state][prev_action])
+    
     # TBD if we need to treat terminal states
     # if done == True:
     #   self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*0-self.q_table[prev_state, prev_action])
@@ -86,10 +88,8 @@ class Tabular_DynaQ_plus():
         as keys and (reward, next_state)
     """
 
-    model = dict()
-    for state in range(self.state_space_size):
-      for action in range(self.action_space_size):
-        model[state, action] = (0,0)
+    null_state = tuple(np.zeros(self.env.observation_space.shape, dtype=self.env.observation_space.dtype))
+    model = defaultdict(lambda: [(0., null_state) for _ in range(self.env.action_space.n)])
     return model
 
   def model_update(self, state, action, reward, next_state):
@@ -104,7 +104,7 @@ class Tabular_DynaQ_plus():
 
     """
 
-    self.model[state, action] = (reward, next_state)
+    self.model[state][action] = (reward, next_state)
 
   def planning(self):
     """
@@ -171,10 +171,10 @@ class Tabular_DynaQ_plus():
     return total_rewards, nb_steps_episodes
   
 
-# Create test gym environment
-# Example usage with CartPole environment
-env = gym.make("CliffWalking-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-dyna_q_agent = Tabular_DynaQ_plus(env)
-dyna_q_agent.training(env, num_episodes=100)
+# # Create test gym environment
+# # Example usage with CartPole environment
+# env = gym.make("CliffWalking-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
+# dyna_q_agent = Tabular_DynaQ_plus(env)
+# dyna_q_agent.training(env, num_episodes=100)
 
 
