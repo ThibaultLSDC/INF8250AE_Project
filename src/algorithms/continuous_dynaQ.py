@@ -7,11 +7,6 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 
-"""
-Not sure about the following
--> Initialize q-network
-"""
-
 
 # Continuous dyna-Q class
 class Continuous_DynaQ():
@@ -23,7 +18,9 @@ class Continuous_DynaQ():
   4. Planning
   """
 
-  def __init__(self, env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, learning_rate=1e-3, model_capacity = 10000):
+  def __init__(self, env:gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, 
+        q_learning_rate=1e-3, model_learning_rate=1e-3, memory_capacity=10000, batch_size=32):
+        
         self.env = env
         self.step_size = step_size  # Learning rate
         self.discount = discount  # Discount factor
@@ -33,34 +30,32 @@ class Continuous_DynaQ():
         self.state_space_size = env.observation_space.n
         self.action_space_size = env.action_space.n
 
-        # Initialize q-network and model
-        # self.model = self.reset_model()
-        self.model = [] # self.buffer instead
-        self.model_capacity = model_capacity # Use neural network for this
-        # Neural network parameters
-        self.learning_rate = learning_rate
-        # Not sure about the line below !!!!!!!!!!!!!!!!!
-        self.q_network = self.build_network(self.state_space_size, self.action_space_size)
-        self.opt = torch.optim.Adam(self.network_parameters(), lr=self.learning_rate)
-        # Not sure what would be the network_parameters here.
+        # Initialize Q-value neural network
+        self.q_learning_rate = q_learning_rate
+        self.q_network = torch.nn.Sequential(
+          torch.nn.Linear(self.state_space_size[0], 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, self.action_space_size[0])
+        )
+        self.q_opt = torch.optim.Adam(self.q_network.parameters(), lr=self.q_learning_rate)
+        
+        # Initialize model neural network
+        self.model_learning_rate = model_learning_rate
+        self.model_network = torch.nn.Sequential(
+          torch.nn.Linear(self.state_space_size[0]+self.action_space_size[0], 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, 256),
+          torch.nn.ReLU(),
+          torch.nn.Linear(256, self.state_space_size[0])
+        )
+        self.model_opt = torch.optim.Adam(self.model_network.parameters(), lr=self.model_learning_rate)
+        
+        self.memory = []
 
-  def build_network(self, state_space_size, action_space_size):
-    """
-    Builds a neural network that maps observations to Q-values for each action.
-    
-    Input:
-      state_space_size (matrix): Dimensions of the state space
-      action_space_size (int): Size of the action space
-    """
-    input_dimension = state_space_size.shape[0]
-    output_dimension = action_space_size.n
-    return torch.nn.Sequential(
-        torch.nn.Linear(input_dimension, 256),
-        torch.nn.ReLU(),
-        torch.nn.Linear(256, 256),
-        torch.nn.ReLU(),
-        torch.nn.Linear(256, output_dimension),
-    )
+        self.memory_capacity = memory_capacity
+        self.batch_size = batch_size
 
   def eps_greedy_policy(self, current_state):
     """
@@ -82,7 +77,6 @@ class Continuous_DynaQ():
     # --------------------------------
     return step_action
   
-
   def q_network_update(self, prev_state, prev_action, prev_reward, current_state): # , done # Only if we need to treat terminal states
     """
     Q-network update
@@ -106,9 +100,9 @@ class Continuous_DynaQ():
     current_state_tensor = torch.tensor(current_state, dtype=torch.float32)
     targets = prev_reward + self.discount*(torch.max(self.q_network(current_state_tensor), dim=1)[0])
     loss = nn.MSELoss()(self.q_network_update(prev_state_tensor), targets)
-    self.opt.zero_grad()
+    self.q_opt.zero_grad()
     loss.backward()
-    self.opt.step()
+    self.q_opt.step()
 
     # TBD if we need to treat terminal states
     # targets = prev_reward + self.discount*(torch.max(self.q_network, dim=1)[0])*(1-terminated)
@@ -124,10 +118,19 @@ class Continuous_DynaQ():
       current_state (int): State the agent will be in
 
     """
-    if len(self.model) < self.model_capacity:
-      self.model.append((state, action, reward, next_state))
-    else: # Replace an element of the model
-      self.model[random.choice(range(len(self.model)))] = (state, action, reward, next_state)
+
+    # if len(self.model) < self.model_capacity:
+    #   self.model.append((state, action, reward, next_state))
+    # else: # Replace an element of the model
+    #   self.model[random.choice(range(len(self.model)))] = (state, action, reward, next_state)
+
+
+    targets = self.model()
+
+    model_loss = nn.MSELoss()(self.q_network_update(next_state), targets)
+    self.model_opt.zero_grad()
+    model_loss.backward()
+    self.model_opt.step()
 
   def planning(self):
     """
@@ -135,9 +138,7 @@ class Continuous_DynaQ():
     """
 
     for steps in range(self.planning_steps): # Regression gradient descent for self.model
-      rnd_sample = random.choice(list(self.model.keys())) 
-      state, action = rnd_sample
-      current_state, reward = self.model[rnd_sample]
+      state, action, reward, current_state = random.choice(self.memory) 
       self.q_network_update(state, action, reward, current_state) # , done
 
   def training(self, env, num_episodes):
@@ -175,22 +176,28 @@ class Continuous_DynaQ():
         self.q_network_update(state, action, reward, current_state) # , done
         # Update model
         self.model_update(state, action, reward, current_state)
-        # Planning
-        self.planning()
+
+        # self.remember(statem action, rewrd, next_state)
+        # self.experience_replay()
+        
         # Update state for next iteration
         state = current_state
         total_reward_per_episode += reward
         nb_steps_per_episode += 1.0
 
+      # Planning
+        self.planning()
+
       total_rewards.append(total_reward_per_episode)
       nb_steps_episodes.append(nb_steps_per_episode)
+
     return total_rewards, nb_steps_episodes
   
 
 # Create test gym environment
 # Example usage with CartPole environment
-env = gym.make("Pendulum-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-dyna_q_agent = Continuous_DynaQ(env)
-dyna_q_agent.training(env, num_episodes=100)
+# env = gym.make("Pendulum-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
+# dyna_q_agent = Continuous_DynaQ(env)
+# dyna_q_agent.training(env, num_episodes=100)
 
 
