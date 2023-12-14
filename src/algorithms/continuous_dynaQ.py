@@ -57,24 +57,6 @@ class Continuous_DynaQ():
         self.memory_capacity = memory_capacity
         self.batch_size = batch_size
 
-  def build_network(self, state_space_size, action_space_size):
-    """
-    Builds a neural network that maps observations to Q-values for each action.
-    
-    Input:
-      state_space_size (matrix): Dimensions of the state space
-      action_space_size (int): Size of the action space
-    """
-    input_dimension = state_space_size.shape[0]
-    output_dimension = action_space_size.n
-    return torch.nn.Sequential(
-        torch.nn.Linear(input_dimension, 256),
-        torch.nn.ReLU(),
-        torch.nn.Linear(256, 256),
-        torch.nn.ReLU(),
-        torch.nn.Linear(256, output_dimension),
-    )
-
   def eps_greedy_policy(self, current_state):
     """
     Implementation of epsilon-greedy policy
@@ -95,7 +77,6 @@ class Continuous_DynaQ():
     # --------------------------------
     return step_action
   
-
   def q_network_update(self, prev_state, prev_action, prev_reward, current_state): # , done # Only if we need to treat terminal states
     """
     Q-network update
@@ -119,9 +100,9 @@ class Continuous_DynaQ():
     current_state_tensor = torch.tensor(current_state, dtype=torch.float32)
     targets = prev_reward + self.discount*(torch.max(self.q_network(current_state_tensor), dim=1)[0])
     loss = nn.MSELoss()(self.q_network_update(prev_state_tensor), targets)
-    self.opt.zero_grad()
+    self.q_opt.zero_grad()
     loss.backward()
-    self.opt.step()
+    self.q_opt.step()
 
     # TBD if we need to treat terminal states
     # targets = prev_reward + self.discount*(torch.max(self.q_network, dim=1)[0])*(1-terminated)
@@ -142,6 +123,13 @@ class Continuous_DynaQ():
     else: # Replace an element of the model
       self.model[random.choice(range(len(self.model)))] = (state, action, reward, next_state)
 
+    targets = self.model()
+
+    model_loss = nn.MSELoss()(self.q_network_update(next_state), targets)
+    self.model_opt.zero_grad()
+    model_loss.backward()
+    self.model_opt.step()
+
   def planning(self):
     """
     Plans 'planning_steps' ahead
@@ -150,7 +138,7 @@ class Continuous_DynaQ():
     for steps in range(self.planning_steps): # Regression gradient descent for self.model
       rnd_sample = random.choice(list(self.model.keys())) 
       state, action = rnd_sample
-      current_state, reward = self.model[rnd_sample]
+      current_state, reward = self.memory[rnd_sample]
       self.q_network_update(state, action, reward, current_state) # , done
 
   def training(self, env, num_episodes):
@@ -188,15 +176,18 @@ class Continuous_DynaQ():
         self.q_network_update(state, action, reward, current_state) # , done
         # Update model
         self.model_update(state, action, reward, current_state)
-        # Planning
-        self.planning()
+        
         # Update state for next iteration
         state = current_state
         total_reward_per_episode += reward
         nb_steps_per_episode += 1.0
 
+      # Planning
+        self.planning()
+
       total_rewards.append(total_reward_per_episode)
       nb_steps_episodes.append(nb_steps_per_episode)
+
     return total_rewards, nb_steps_episodes
   
 
