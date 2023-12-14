@@ -50,6 +50,8 @@ class DiscreteGridWorld(gym.Env):
 
     def reset(self, **kwargs):
         self.position = self.observation_space.sample().astype(np.int32).clip(0, self.goal)
+        while self.obstacles[self.position[0], self.position[1]]:
+            self.position = self.observation_space.sample().astype(np.int32).clip(0, self.goal)
         self.steps = 0
         return self._get_obs(), {}
 
