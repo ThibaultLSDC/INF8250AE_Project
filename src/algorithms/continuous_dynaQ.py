@@ -132,6 +132,19 @@ class Continuous_DynaQ():
     model_loss.backward()
     self.model_opt.step()
 
+  def memory_check(self, state, action, reward, next_state):
+    self.memory.append((state, action, reward, next_state))
+    if len(self.memory) > self.memory_capacity:
+      self.memory.pop(0)
+
+  def replay_buffer(self):
+    if len(self.memory) < self.batch_size:
+      return
+    
+    minibatch = random.sample(self.memory, self.batch_size)
+
+    return
+
   def planning(self):
     """
     Plans 'planning_steps' ahead
@@ -139,7 +152,7 @@ class Continuous_DynaQ():
 
     for steps in range(self.planning_steps): # Regression gradient descent for self.model
       state, action, reward, current_state = random.choice(self.memory) 
-      self.q_network_update(state, action, reward, current_state) # , done
+      self.model_update(state, action, reward, current_state) # , done
 
   def training(self, env, num_episodes):
     """
@@ -177,7 +190,7 @@ class Continuous_DynaQ():
         # Update model
         self.model_update(state, action, reward, current_state)
 
-        # self.remember(statem action, rewrd, next_state)
+        # self.memory_check(statem action, rewrd, next_state)
         # self.experience_replay()
         
         # Update state for next iteration
