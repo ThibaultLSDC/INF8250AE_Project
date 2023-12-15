@@ -4,7 +4,7 @@ from algorithms.tabular_dynaQ_plus import Tabular_DynaQ_plus
 from envs.discrete_gridworld import DiscreteGridWorld
 
 env = DiscreteGridWorld(size=(10, 10))
-env.reset()
+env.reset(seed=42)
 env.render()
 
 dynaQ_plus = Tabular_DynaQ_plus(env)

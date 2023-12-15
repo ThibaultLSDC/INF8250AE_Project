@@ -4,7 +4,7 @@ from algorithms.tabular_Q_learning import Tabular_Q_learning
 from envs.discrete_gridworld import DiscreteGridWorld
 
 env = DiscreteGridWorld(size=(10,10))
-env.reset()
+env.reset(seed=42)
 env.render()
 
 Q_learning = Tabular_Q_learning(env)
