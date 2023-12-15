@@ -141,6 +141,8 @@ class Tabular_DynaQ():
             total_reward_per_episode = 0.0
             nb_steps_per_episode = 0.0
 
+            
+
             while not done:
                 # Get action
                 action = self.eps_greedy_policy(state)
@@ -165,6 +167,9 @@ class Tabular_DynaQ():
 
             total_rewards.append(total_reward_per_episode)
             nb_steps_episodes.append(nb_steps_per_episode)
+
+        print("total_rewards ", total_rewards,"\n")
+        print("nb_steps_episodes ", nb_steps_episodes, "\n")
         return total_rewards, nb_steps_episodes
 
     def eval(self, num_episodes=100):
