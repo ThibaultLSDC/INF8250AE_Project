@@ -9,6 +9,8 @@ import gymnasium as gym
 import random
 from collections import defaultdict
 
+from matplotlib.colors import ListedColormap, LogNorm
+from matplotlib.cm import get_cmap
 
 class TabularModel():
     def __init__(self, model: defaultdict[Any, Any]):
@@ -65,10 +67,11 @@ class Q_Planner():
         Input:
         num_steps (int): Number of iterations for training
         """
-
+        self.env.reset()
         for _ in range(num_steps):
-            self.env.reset()
             state = tuple(self.env.observation_space.sample())
+            while self.env.obstacles[state[0], state[1]]:
+                state = tuple(self.env.observation_space.sample())
             action = self.env.action_space.sample()
             reward, next_state = self.model.predict(state, action)
 
@@ -92,3 +95,20 @@ class Q_Planner():
                 state = next_state
 
         return returns, num_steps_per_episode
+
+
+    def render_q_values(self):
+        q_values = np.zeros(self.env.size)
+        for state in self.env.get_states():
+            x, y = state
+            q_values[x, y] = self.q_table[state].max()
+
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
+
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment")
+        plt.show()

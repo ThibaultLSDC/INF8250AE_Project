@@ -1,4 +1,5 @@
 # Import packages
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -7,6 +8,9 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 import json
+
+from matplotlib.colors import ListedColormap, LogNorm
+from matplotlib.cm import get_cmap
 
 from collections import defaultdict
 
@@ -146,7 +150,7 @@ class Tabular_DynaQ():
                 self.planning()
                 # Update state for next iteration
                 state = current_state
-    
+
     def eval(self, num_episodes=100):
         total_rewards = []
         nb_steps_episodes = []
@@ -177,13 +181,30 @@ class Tabular_DynaQ():
             nb_steps_episodes.append(nb_steps_per_episode)
 
         # Save data
-        file_path = "C:/Users/nicle/OneDrive/Bureau/Automne 2023/INF8250AE - Reinforcement learning/INF8250AE_Project/src/graph_data/tabular_DynaQ.json"
+        file_path = (Path(__file__).parent.parent / "data/tabular_DynaQ.json").resolve()
+        if not file_path.parent.exists():
+            file_path.parent.mkdir()
         data = {"total_rewards":total_rewards, "nb_steps_episodes":nb_steps_episodes}
-        with open(file_path, "w") as json_file:
-            json.dump(data, json_file)
+        with file_path.open("w") as json_file:
+            json.dump(data, json_file, indent=4)
 
         return total_rewards, nb_steps_episodes
 
+    def render_q_values(self):
+        q_values = np.zeros(self.env.size)
+        for state in self.env.get_states():
+            x, y = state
+            q_values[x, y] = self.q_table[state].max()
+
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
+
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment")
+        plt.show()
 
 
 
