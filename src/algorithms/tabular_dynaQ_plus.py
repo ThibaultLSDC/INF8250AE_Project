@@ -129,7 +129,7 @@ class Tabular_DynaQ_plus():
             reward += self.kappa * np.sqrt(current_step - self.last_visit_step[rnd_state][action])
             self.q_table_update(rnd_state, action, reward, next_state) # , done
 
-    def training(self, num_episodes):
+    def training(self, num_episodes=100):
         """
         Agent training loop
 
@@ -146,9 +146,11 @@ class Tabular_DynaQ_plus():
         step = 0
         self.last_visit_step = self.reset_last_visits()
 
+        nb_episode = 0
+
         for episode in range(num_episodes):
             # Reset the environment
-            state, _ = self.env.reset(seed=0)
+            state, _ = self.env.reset(seed=42)
             done = False
 
             total_reward_per_episode = 0.0
@@ -173,6 +175,11 @@ class Tabular_DynaQ_plus():
                 state = current_state
                 total_reward_per_episode += reward
                 nb_steps_per_episode += 1.0
+            
+            nb_episode += 1
+            if nb_episode == 3: # We want to plot the Q-values after the 2nd episode
+                # print("q_values ", self.q_table, "\n")
+                self.render_q_values_After10Episodes()
 
             total_rewards.append(total_reward_per_episode)
             nb_steps_episodes.append(nb_steps_per_episode)
@@ -237,5 +244,21 @@ class Tabular_DynaQ_plus():
         plt.title("Q-values across environment")
         plt.show()
 
+    def render_q_values_After10Episodes(self):
+        q_values = np.zeros(self.env.size)
+        for state in self.env.get_states():
+            x, y = state
+            q_values[x, y] = self.q_table[state].max()
 
+        print("q_values ", q_values, "\n")
+
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
+
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment after 3 episodes")
+        plt.show()
 

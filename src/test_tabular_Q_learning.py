@@ -3,7 +3,7 @@ import numpy as np
 from algorithms.tabular_Q_learning import Tabular_Q_learning
 from envs.discrete_gridworld import DiscreteGridWorld
 
-env = DiscreteGridWorld()
+env = DiscreteGridWorld(size=(10,10))
 env.reset()
 env.render()
 

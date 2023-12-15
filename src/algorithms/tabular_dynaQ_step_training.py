@@ -117,7 +117,7 @@ class Tabular_DynaQ():
             reward, current_state = self.model[rnd_state][action]
             self.q_table_update(rnd_state, action, reward, current_state) # , done
 
-    def training(self, num_episodes=100):
+    def training(self, num_steps=100000):
         """
         Agent training loop
 
@@ -129,43 +129,71 @@ class Tabular_DynaQ():
         total_rewards (list): Sum of all the rewards for each episode
         nb_steps_episodes (list): Number of steps for each episode
         """
-        total_rewards = []
-        nb_steps_episodes = []
-        nb_episode = 0
+        # total_rewards = []
+        # nb_steps_episodes = []
+        # nb_episode = 0
+        # Reset the environment
+        state, _ = self.env.reset(seed=42)
+        done = False
 
-        for episode in range(num_episodes):
-            # Reset the environment
-            state, _ = self.env.reset(seed=42)
-            done = False
+        nb_episodes = 0
 
-            total_reward_per_episode = 0.0
-            nb_steps_per_episode = 0.0
+        for step in range(num_steps):
+            # Get action
+            action = self.eps_greedy_policy(state)
+            # Take step
+            current_state, reward, terminated, truncated,_ = self.env.step(action)
+            done = terminated or truncated
+            # Update Q-table
+            self.q_table_update(state, action, reward, current_state) # , done
+            # Update model
+            self.model_update(state, action, reward, current_state)
+            # Planning
+            self.planning()
+            # Update s
+            # tate for next iteration
+            state = current_state
 
-            while not done:
-                # Get action
-                action = self.eps_greedy_policy(state)
-                # Take step
-                current_state, reward, terminated, truncated,_ = self.env.step(action)
-                done = terminated or truncated
-                # Update Q-table
-                self.q_table_update(state, action, reward, current_state) # , done
-                # Update model
-                self.model_update(state, action, reward, current_state)
-                # Planning
-                self.planning()
-                # Update state for next iteration
-                state = current_state
-                total_reward_per_episode += reward
-                nb_steps_per_episode += 1.0
+            if done:
+                state, _ = self.env.reset(seed=42)
+                done = False
+                nb_episodes += 1
+            print("nb_episodes ", nb_episodes, "\n")
+        # for episode in range(num_steps):
+        #     # Reset the environment
+        #     state, _ = self.env.reset()
+        #     done = False
+
+        #     total_reward_per_episode = 0.0
+        #     nb_steps_per_episode = 0.0
+
+        #     while not done:
+        #         # Get action
+        #         action = self.eps_greedy_policy(state)
+        #         # Take step
+        #         current_state, reward, terminated, truncated,_ = self.env.step(action)
+        #         done = terminated or truncated
+        #         # Update Q-table
+        #         self.q_table_update(state, action, reward, current_state) # , done
+        #         # Update model
+        #         self.model_update(state, action, reward, current_state)
+        #         # Planning
+        #         self.planning()
+        #         # Update state for next iteration
+        #         state = current_state
+        #         # total_reward_per_episode += reward
+        #         # nb_steps_per_episode += 1.0
             
-            nb_episode += 1
-            if nb_episode == 3: # We want to plot the Q-values after the 2nd episode
-                # print("q_values ", self.q_table, "\n")
-                self.render_q_values_After10Episodes()
+        #     nb_episode += 1
+            if nb_episodes == 2: # We want to plot the Q-values after the 2nd episode
+                print("q_values ", self.q_table, "\n")
+                # self.render_q_values_After2Episodes()
+                # pass
 
-            total_rewards.append(total_reward_per_episode)
-            nb_steps_episodes.append(nb_steps_per_episode)
-        return total_rewards, nb_steps_episodes
+        #     total_rewards.append(total_reward_per_episode)
+        #     nb_steps_episodes.append(nb_steps_per_episode)
+
+        # return total_rewards, nb_steps_episodes
 
     def eval(self, num_episodes=100):
         total_rewards = []
@@ -222,7 +250,7 @@ class Tabular_DynaQ():
         plt.title("Q-values across environment")
         plt.show()
 
-    def render_q_values_After10Episodes(self):
+    def render_q_values_After2Episodes(self):
         q_values = np.zeros(self.env.size)
         for state in self.env.get_states():
             x, y = state
@@ -237,5 +265,5 @@ class Tabular_DynaQ():
 
         plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
         plt.colorbar()
-        plt.title("Q-values across environment after 3 episodes")
+        plt.title("Q-values across environment after 2 episodes")
         plt.show()
