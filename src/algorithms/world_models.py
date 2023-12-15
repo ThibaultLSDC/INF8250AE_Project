@@ -3,6 +3,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import gymnasium as gym
+    from src.envs.discrete_gridworld import StochasticDiscreteGridWorld
+
+
 class WorldModel:
     def __init__(self, env_size: int, action_size: int) -> None:
         self.env_size = env_size
@@ -17,6 +24,38 @@ class WorldModel:
     
     def __call__(self, state, action):
         return self.model[state][action]
+
+
+class StochasticWorldModel:
+    def __init__(self,
+                 env: 'StochasticDiscreteGridWorld',
+                 update_size: float=0.1,
+                 ) -> None:
+        self.env_size = env.size
+        self.env_len = env.size[0] * env.size[1]
+
+        self.update_size = update_size
+
+        self.model = {}
+        for state in range(self.env_len):
+            self.model[state] = [np.ones((env.action_space.n, self.env_len)) * 1 / self.env_len, np.zeros(env.action_space.n)]
+    
+    def state_to_index(self, state: Tuple[int, int]) -> int:
+        return state[0] * self.env_size[0] + state[1]
+    
+    def one_hot(self, index: int) -> np.ndarray:
+        one_hot = np.zeros(self.env_len)
+        one_hot[index] = 1
+        return one_hot
+    
+    def update(self, state: Tuple[int, int], action: int, next_state: Tuple[int, int], reward: float) -> None:
+        state = self.state_to_index(state)
+        next_state = self.state_to_index(next_state)
+        self.model[state][0][action] += self.update_size * (self.one_hot(next_state) - self.model[state][0][action])
+        self.model[state][1][action] += self.update_size * (reward - self.model[state][1][action])
+    
+    def __call__(self, state, action):
+        return self.model[state][0][action], self.model[state][1][action]
 
 
 class TorchWorldModel:

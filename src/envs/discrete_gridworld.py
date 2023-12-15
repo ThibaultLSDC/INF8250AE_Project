@@ -160,3 +160,21 @@ class DiscreteGridWorld(gym.Env):
                     states.append((i, j))
 
         return states
+
+
+class StochasticDiscreteGridWorld(DiscreteGridWorld):
+    def __init__(self,
+                 size=(5, 5),
+                 max_steps=1000,
+                 render_mode='human',
+                 obstacles: np.ndarray = None,
+                 stochasticity=0.,
+                 ):
+
+        super().__init__(size, max_steps, render_mode, obstacles)
+        self.stochasticity = stochasticity
+
+    def _update_action(self, action):
+        if np.random.random() < self.stochasticity:
+            action = np.random.randint(0, 5)
+        return super()._update_action(action)
