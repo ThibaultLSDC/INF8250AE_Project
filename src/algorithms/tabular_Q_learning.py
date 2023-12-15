@@ -81,7 +81,7 @@ class Tabular_Q_learning():
         for episode in range(num_steps):
 
             # Reset the environment
-            state, _ = self.env.reset()
+            state, _ = self.env.reset(seed=42)
             done = False
 
             while not done:
@@ -94,6 +94,9 @@ class Tabular_Q_learning():
                 self.q_table_update(state, action, reward, current_state) # , done
                 # Update state for next iteration
                 state = current_state
+
+                # Do graph after second episode
+                # 
     
     def eval(self, num_episodes=100):
         total_rewards = []

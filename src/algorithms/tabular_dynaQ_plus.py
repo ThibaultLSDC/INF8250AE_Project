@@ -238,10 +238,4 @@ class Tabular_DynaQ_plus():
         plt.show()
 
 
-# # Create test gym environment
-# # Example usage with CartPole environment
-# env = gym.make("CliffWalking-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-# dyna_q_agent = Tabular_DynaQ_plus(env)
-# dyna_q_agent.training(env, num_episodes=100)
-
 

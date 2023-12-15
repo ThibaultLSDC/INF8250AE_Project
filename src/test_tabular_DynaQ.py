@@ -16,4 +16,5 @@ print(total_rewards)
 print(np.mean(total_rewards))
 print(nb_steps_episodes)
 
+# Final graph
 dynaQ.render_q_values()

@@ -129,12 +129,17 @@ class Tabular_DynaQ():
         total_rewards (list): Sum of all the rewards for each episode
         nb_steps_episodes (list): Number of steps for each episode
         """
+        total_rewards = []
+        nb_steps_episodes = []
+        nb_episode = 0
 
         for episode in range(num_steps):
-
             # Reset the environment
             state, _ = self.env.reset()
             done = False
+
+            total_reward_per_episode = 0.0
+            nb_steps_per_episode = 0.0
 
             while not done:
                 # Get action
@@ -150,6 +155,18 @@ class Tabular_DynaQ():
                 self.planning()
                 # Update state for next iteration
                 state = current_state
+                total_reward_per_episode += reward
+                nb_steps_per_episode += 1.0
+            
+            nb_episode += 1
+            if nb_episode == 10: # We want to plot the Q-values after the 2nd episode
+                print("q_values ", self.q_table, "\n")
+                self.render_q_values_After2Episodes()
+                pass
+
+            total_rewards.append(total_reward_per_episode)
+            nb_steps_episodes.append(nb_steps_per_episode)
+        return total_rewards, nb_steps_episodes
 
     def eval(self, num_episodes=100):
         total_rewards = []
@@ -206,15 +223,20 @@ class Tabular_DynaQ():
         plt.title("Q-values across environment")
         plt.show()
 
+    def render_q_values_After2Episodes(self):
+        q_values = np.zeros(self.env.size)
+        for state in self.env.get_states():
+            x, y = state
+            q_values[x, y] = self.q_table[state].max()
 
+        print("q_values ", q_values, "\n")
 
-# Create test gym environment
-# Example usage with CartPole environment
-# env = gym.make("CliffWalking-v0", render_mode="rgb_array",max_episode_steps=1) # , render_mode="rgb_array", max_episode_steps=200
-# dyna_q_agent = Tabular_DynaQ(env)
-# dyna_q_agent.training(env, num_episodes=100)
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
 
-
-# Graph of the accumulated reward and have a vertical line when does he discover the objective reward for the first time
-# After train take argmax of Q-table for each state to get the action and don't update the Q-table
-
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment after 2 episodes")
+        plt.show()
