@@ -180,7 +180,7 @@ class Tabular_DynaQ_plus():
                 nb_steps_per_episode += 1.0
 
             nb_episode += 1
-            if nb_episode == 3: # We want to plot the Q-values after the 2nd episode
+            if nb_episode == 2: # We want to plot the Q-values after the 2nd episode
                 # print("q_values ", self.q_table, "\n")
                 self.render_q_values(title="Q-values after 2 episodes")
 

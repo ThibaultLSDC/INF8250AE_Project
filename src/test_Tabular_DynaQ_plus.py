@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 from algorithms.tabular_dynaQ_plus import Tabular_DynaQ_plus
 from envs.discrete_gridworld import DiscreteGridWorld
@@ -18,3 +19,9 @@ print(nb_steps_episodes)
 
 # Final graph
 dynaQ_plus.render_q_values()
+
+plt.plot(nb_steps_episodes)
+plt.xlabel("Number of episodes")
+plt.ylabel("Number of steps per episode")
+plt.show()
+

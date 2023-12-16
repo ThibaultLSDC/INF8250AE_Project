@@ -105,9 +105,13 @@ class Tabular_Q_learning():
                 nb_steps_per_episode += 1.0
             
             nb_episode += 1
-            if nb_episode == 3: # We want to plot the Q-values after the 2nd episode
-                # print("q_values ", self.q_table, "\n")
+            
+            if nb_episode == 15: # We want to plot the Q-values after the 2nd episode
+                print("q_values ", self.q_table, "\n")
+                print("total_rewards ", total_rewards,"\n")
+                print("nb_steps_episodes ", nb_steps_episodes,"\n")
                 self.render_q_values_After10Episodes()
+                
 
             total_rewards.append(total_reward_per_episode)
             nb_steps_episodes.append(nb_steps_per_episode)
@@ -172,7 +176,7 @@ class Tabular_Q_learning():
             x, y = state
             q_values[x, y] = self.q_table[state].max()
 
-        print("q_values ", q_values, "\n")
+        # print("q_values ", q_values, "\n")
 
         viridis = get_cmap("viridis", 256)
         colors = viridis(np.linspace(0, 1, 256))
@@ -181,5 +185,5 @@ class Tabular_Q_learning():
 
         plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
         plt.colorbar()
-        plt.title("Q-values across environment after 3 episodes")
+        plt.title("Q-values across environment after 15 episodes")
         plt.show()
