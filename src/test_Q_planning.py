@@ -5,7 +5,7 @@ from envs.discrete_gridworld import DiscreteGridWorld
 from algorithms.tabular_Q_planning import TabularModel, Q_Planner
 
 
-env = DiscreteGridWorld(size=(10, 10))
+env = DiscreteGridWorld(size=(10, 10), seed=42)
 env.reset()
 env.render()
 

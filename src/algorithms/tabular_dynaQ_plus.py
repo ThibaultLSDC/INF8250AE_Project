@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import gymnasium as gym
-import random
 
 from matplotlib.colors import ListedColormap, LogNorm
 from matplotlib.cm import get_cmap
@@ -32,6 +31,8 @@ class Tabular_DynaQ_plus():
         self.planning_steps = planning_steps  # Number of planning steps for model updates
 
         self.action_space_size = env.action_space.n
+
+        np.random.seed(self.env.seed)
 
         # Initialize Q-table and model
         self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
@@ -122,9 +123,11 @@ class Tabular_DynaQ_plus():
         """
         Plans 'planning_steps' ahead
         """
+        states = list(self.model.keys())
         for _ in range(self.planning_steps):
-            rnd_state = random.choice(list(self.model.keys()))
-            action = random.randint(0, self.action_space_size - 1)
+            rnd_state_id = np.random.randint(len(states))
+            rnd_state = states[rnd_state_id]
+            action = np.random.randint(0, self.action_space_size - 1)
             reward, next_state = self.model[rnd_state][action]
             reward += self.kappa * np.sqrt(current_step - self.last_visit_step[rnd_state][action])
             self.q_table_update(rnd_state, action, reward, next_state) # , done
@@ -175,11 +178,11 @@ class Tabular_DynaQ_plus():
                 state = current_state
                 total_reward_per_episode += reward
                 nb_steps_per_episode += 1.0
-            
+
             nb_episode += 1
             if nb_episode == 3: # We want to plot the Q-values after the 2nd episode
                 # print("q_values ", self.q_table, "\n")
-                self.render_q_values_After10Episodes()
+                self.render_q_values(title="Q-values after 2 episodes")
 
             total_rewards.append(total_reward_per_episode)
             nb_steps_episodes.append(nb_steps_per_episode)
@@ -228,37 +231,23 @@ class Tabular_DynaQ_plus():
 
         return total_rewards, nb_steps_episodes
 
-    def render_q_values(self):
+    def render_q_values(self, title: str = None):
         q_values = np.zeros(self.env.size)
         for state in self.env.get_states():
             x, y = state
             q_values[x, y] = self.q_table[state].max()
 
-        viridis = get_cmap("viridis", 256)
-        colors = viridis(np.linspace(0, 1, 256))
+        viridis = get_cmap("viridis", 1024)
+        colors = viridis(np.linspace(0, 1, 1024))
         colors[0] = np.array([0., 0., 0., 1.])
         cmap = ListedColormap(colors)
 
-        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
-        plt.colorbar()
-        plt.title("Q-values across environment")
+        if np.any(q_values):
+            plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+            plt.colorbar()
+        else:
+            plt.imshow(q_values.T, origin="lower", cmap=cmap)
+        plt.title(title or "Q-values across environment")
         plt.show()
 
-    def render_q_values_After10Episodes(self):
-        q_values = np.zeros(self.env.size)
-        for state in self.env.get_states():
-            x, y = state
-            q_values[x, y] = self.q_table[state].max()
-
-        print("q_values ", q_values, "\n")
-
-        viridis = get_cmap("viridis", 256)
-        colors = viridis(np.linspace(0, 1, 256))
-        colors[0] = np.array([0., 0., 0., 1.])
-        cmap = ListedColormap(colors)
-
-        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
-        plt.colorbar()
-        plt.title("Q-values across environment after 3 episodes")
-        plt.show()
 

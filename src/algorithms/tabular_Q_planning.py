@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import gymnasium as gym
-import random
 from collections import defaultdict
 
 from matplotlib.colors import ListedColormap, LogNorm
@@ -28,8 +27,7 @@ class Q_Planner():
     2. Get (Rt', St') from world model
     3. Q-learning update
     """
-
-    def __init__(self, env, model: TabularModel, step_size=0.1, discount=0.9):
+    def __init__(self, env: gym.Env, model: TabularModel, step_size=0.1, discount=0.9):
             self.env = env
             self.model = model
             self.step_size = step_size  # Learning rate
@@ -39,7 +37,7 @@ class Q_Planner():
 
             # Initialize Q-table and model
             self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
-
+            np.random.seed(self.env.seed)
 
     def q_table_update(self, prev_state, prev_action, prev_reward, current_state): # , done # Only if we need to treat terminal states
         """
@@ -55,10 +53,8 @@ class Q_Planner():
         env: Custom Grid World environment
         num_episodes (int): Number of iterations for training
         """
-
         update_action = np.argmax(self.q_table[current_state])
         self.q_table[prev_state][prev_action] = self.q_table[prev_state][prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state][update_action]-self.q_table[prev_state][prev_action])
-
 
     def training(self, num_steps):
         """
@@ -68,7 +64,7 @@ class Q_Planner():
         num_steps (int): Number of iterations for training
         """
         self.env.reset()
-        for _ in range(num_steps):
+        for step in range(num_steps):
             state = tuple(self.env.observation_space.sample())
             while self.env.obstacles[state[0], state[1]]:
                 state = tuple(self.env.observation_space.sample())
@@ -77,6 +73,8 @@ class Q_Planner():
 
             self.q_table_update(state, action, reward, next_state)
 
+            if step == 1000:
+                self.render_q_values(title="Q-values after 1000 steps")
 
     def eval(self, num_episodes: int = 25):
         returns = []
@@ -95,7 +93,6 @@ class Q_Planner():
                 state = next_state
 
         return returns, num_steps_per_episode
-
 
     def render_q_values(self):
         q_values = np.zeros(self.env.size)
