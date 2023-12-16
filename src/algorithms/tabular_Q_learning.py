@@ -17,7 +17,7 @@ from collections import defaultdict
 # Tabular dyna-Q class
 class Tabular_Q_learning():
 
-    def __init__(self, env: gym.Env, step_size=0.1, discount=0.9, epsilon=0.1):
+    def __init__(self, env: gym.Env, step_size=0.1, discount=0.99, epsilon=0.1):
             self.env = env
             self.step_size = step_size  # Learning rate
             self.discount = discount  # Discount factor

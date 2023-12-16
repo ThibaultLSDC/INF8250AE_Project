@@ -23,7 +23,7 @@ class Tabular_DynaQ():
     4. Planning
     """
 
-    def __init__(self, env: gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5):
+    def __init__(self, env: gym.Env, step_size=0.1, discount=0.99, epsilon=0.1, planning_steps=5):
             self.env = env
             self.step_size = step_size  # Learning rate
             self.discount = discount  # Discount factor
