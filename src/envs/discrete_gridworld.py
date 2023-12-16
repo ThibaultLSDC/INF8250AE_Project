@@ -20,12 +20,15 @@ class DiscreteGridWorld(gym.Env):
                  render_mode='human',
                  obstacles: np.ndarray = None,
                  goal_region_min_size: float = 0.25,
+                 seed: int = 42,
                  ):
 
         self.size = np.array(size)
         self.goal = np.array(size, dtype=np.int32) - 1
         self.max_steps = max_steps
         self.goal_region_min_size = goal_region_min_size
+        self.seed = seed
+        np.random.seed(self.seed)
 
         if obstacles:
             assert (obstacles.shape[0] == self.size[0]) and (obstacles.shape[1] == self.size[1]), f"Obstacle map size ({obstacles.shape}) doesn't match environment shape ({self.size})"
@@ -44,10 +47,10 @@ class DiscreteGridWorld(gym.Env):
         self.clock = None
 
         # Observation space
-        self.observation_space = spaces.MultiDiscrete(self.size)
+        self.observation_space = spaces.MultiDiscrete(self.size, seed=self.seed)
 
         # Action space
-        self.action_space = spaces.Discrete(n=5)
+        self.action_space = spaces.Discrete(n=5, seed=self.seed)
 
         assert self.observation_space.contains(self.goal), "Invalid goal position"
 

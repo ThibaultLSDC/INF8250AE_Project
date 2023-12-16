@@ -1,4 +1,5 @@
 # Import packages
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -7,6 +8,9 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 import json
+
+from matplotlib.colors import ListedColormap, LogNorm
+from matplotlib.cm import get_cmap
 
 from collections import defaultdict
 
@@ -61,13 +65,7 @@ class Tabular_Q_learning():
 
         self.q_table[prev_state][prev_action] = self.q_table[prev_state][prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state][update_action]-self.q_table[prev_state][prev_action])
 
-        # TBD if we need to treat terminal states
-        # if done == True:
-        #   self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*0-self.q_table[prev_state, prev_action])
-        # else: # Essentially if done == False
-        #   self.q_table[prev_state, prev_action] = self.q_table[prev_state, prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state, update_action]-self.q_table[prev_state, prev_action])
-
-    def training(self, num_steps: int = 100):
+    def training(self, num_episodes=100):
         """
         Agent training loop
 
@@ -80,11 +78,18 @@ class Tabular_Q_learning():
         nb_steps_episodes (list): Number of steps for each episode
         """
 
-        for episode in range(num_steps):
+        total_rewards = []
+        nb_steps_episodes = []
+        nb_episode = 0
+
+        for episode in range(num_episodes):
 
             # Reset the environment
-            state, _ = self.env.reset()
+            state, _ = self.env.reset(seed=42)
             done = False
+
+            total_reward_per_episode = 0.0
+            nb_steps_per_episode = 0.0
 
             while not done:
                 # Get action
@@ -96,6 +101,17 @@ class Tabular_Q_learning():
                 self.q_table_update(state, action, reward, current_state) # , done
                 # Update state for next iteration
                 state = current_state
+                total_reward_per_episode += reward
+                nb_steps_per_episode += 1.0
+            
+            nb_episode += 1
+            if nb_episode == 3: # We want to plot the Q-values after the 2nd episode
+                # print("q_values ", self.q_table, "\n")
+                self.render_q_values_After10Episodes()
+
+            total_rewards.append(total_reward_per_episode)
+            nb_steps_episodes.append(nb_steps_per_episode)
+        return total_rewards, nb_steps_episodes
     
     def eval(self, num_episodes=100):
         total_rewards = []
@@ -125,33 +141,45 @@ class Tabular_Q_learning():
             nb_steps_episodes.append(nb_steps_per_episode)
 
         # Save data
-        file_path = "C:/Users/nicle/OneDrive/Bureau/Automne 2023/INF8250AE - Reinforcement learning/INF8250AE_Project/src/graph_data/tabular_Q_learning.json"
+        file_path = (Path(__file__).parent.parent / "data/tabular_Q_learning.json").resolve()
+        if not file_path.parent.exists():
+            file_path.parent.mkdir()
         data = {"total_rewards":total_rewards, "nb_steps_episodes":nb_steps_episodes}
-        with open(file_path, "w") as json_file:
-            json.dump(data, json_file)
+        with file_path.open("w") as json_file:
+            json.dump(data, json_file, indent=4)
 
         return total_rewards, nb_steps_episodes
+    
+    def render_q_values(self):
+        q_values = np.zeros(self.env.size)
+        for state in self.env.get_states():
+            x, y = state
+            q_values[x, y] = self.q_table[state].max()
 
-# data = {
-#     "name": "John",
-#     "age": 30,
-#     "city": "New York"
-# }
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
 
-# # Specify the file name
-# filename = "data.json"
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment")
+        plt.show()
 
-# # Use json.dump() to write data to the file
-# with open(filename, "w") as json_file:
-#     json.dump(data, json_file)
+    def render_q_values_After10Episodes(self):
+        q_values = np.zeros(self.env.size)
+        for state in self.env.get_states():
+            x, y = state
+            q_values[x, y] = self.q_table[state].max()
 
+        print("q_values ", q_values, "\n")
 
-# # Specify the file name
-# filename = "data.json"
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
 
-# # Use json.load() to read data from the file
-# with open(filename, "r") as json_file:
-#     loaded_data = json.load(json_file)
-
-# # Now, loaded_data contains the data from the JSON file
-# print(loaded_data)
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment after 3 episodes")
+        plt.show()

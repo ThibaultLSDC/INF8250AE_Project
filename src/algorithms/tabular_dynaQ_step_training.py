@@ -1,5 +1,4 @@
 # Import packages
-import json
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,14 +6,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import gymnasium as gym
+import random
+import json
 
 from matplotlib.colors import ListedColormap, LogNorm
 from matplotlib.cm import get_cmap
 
 from collections import defaultdict
 
-# Tabular dyna-Q_plus class
-class Tabular_DynaQ_plus():
+# Tabular dyna-Q class
+class Tabular_DynaQ():
     """
     Tabular dyna-Q steps
     1. Take step in env
@@ -23,24 +24,18 @@ class Tabular_DynaQ_plus():
     4. Planning
     """
 
-    def __init__(self, env:gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5, kappa = 0.001):
-        self.env = env
-        self.step_size = step_size  # Learning rate
-        self.discount = discount  # Discount factor
-        self.epsilon = epsilon  # Exploration-exploitation trade-off
-        self.planning_steps = planning_steps  # Number of planning steps for model updates
+    def __init__(self, env: gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5):
+            self.env = env
+            self.step_size = step_size  # Learning rate
+            self.discount = discount  # Discount factor
+            self.epsilon = epsilon  # Exploration-exploitation trade-off
+            self.planning_steps = planning_steps  # Number of planning steps for model updates
 
-        self.action_space_size = env.action_space.n
+            self.action_space_size = env.action_space.n
 
-        np.random.seed(self.env.seed)
-
-        # Initialize Q-table and model
-        self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
-        self.model = self.reset_model()
-        self.last_visit_step = self.reset_last_visits()
-        self.kappa = kappa
-
-        self.null_state = tuple(np.zeros(self.env.observation_space.shape, dtype=self.env.observation_space.dtype))
+            # Initialize Q-table and model
+            self.q_table = defaultdict(lambda: np.zeros(self.action_space_size))
+            self.model = self.reset_model()
 
     def eps_greedy_policy(self, current_state):
         """
@@ -57,9 +52,8 @@ class Tabular_DynaQ_plus():
             step_action = self.env.action_space.sample()
         else: # Exploit optimal action with probability 1-p
             step_action = np.argmax(self.q_table[current_state])
-              # --------------------------------
+        # --------------------------------
         return step_action
-
 
     def q_table_update(self, prev_state, prev_action, prev_reward, current_state): # , done # Only if we need to treat terminal states
         """
@@ -75,7 +69,9 @@ class Tabular_DynaQ_plus():
         env: Custom Grid World environment
         num_episodes (int): Number of iterations for training
         """
+
         update_action = np.argmax(self.q_table[current_state])
+
         self.q_table[prev_state][prev_action] = self.q_table[prev_state][prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state][update_action]-self.q_table[prev_state][prev_action])
 
         # TBD if we need to treat terminal states
@@ -92,19 +88,9 @@ class Tabular_DynaQ_plus():
         model (defaultdict): Model of the env with (state, action)
             as keys and (reward, next_state)
         """
-        model = defaultdict(lambda: [(0., self.null_state) for _ in range(self.action_space_size)])
+        null_state = tuple(np.zeros(self.env.observation_space.shape, dtype=self.env.observation_space.dtype))
+        model = defaultdict(lambda: [(0., null_state) for _ in range(self.env.action_space.n)])
         return model
-
-    def reset_last_visits(self):
-        """
-        Resets the tracker of the last visit of each state
-
-        Returns:
-        last_visit_step (defaultdict): Tracker of the last step each state-action pair has been visited
-            with state as a key
-        """
-        last_visit_step = defaultdict(lambda: np.zeros(self.action_space_size, dtype=np.int32))
-        return last_visit_step
 
     def model_update(self, state, action, reward, next_state):
         """
@@ -117,22 +103,21 @@ class Tabular_DynaQ_plus():
         current_state (int): State the agent will be in
 
         """
+
         self.model[state][action] = (reward, next_state)
 
-    def planning(self, current_step: int):
+    def planning(self):
         """
         Plans 'planning_steps' ahead
         """
-        states = list(self.model.keys())
-        for _ in range(self.planning_steps):
-            rnd_state_id = np.random.randint(len(states))
-            rnd_state = states[rnd_state_id]
-            action = np.random.randint(0, self.action_space_size - 1)
-            reward, next_state = self.model[rnd_state][action]
-            reward += self.kappa * np.sqrt(current_step - self.last_visit_step[rnd_state][action])
-            self.q_table_update(rnd_state, action, reward, next_state) # , done
 
-    def training(self, num_episodes=100):
+        for steps in range(self.planning_steps):
+            rnd_state = random.choice(list(self.model.keys()))
+            action = random.randint(0, self.action_space_size - 1)
+            reward, current_state = self.model[rnd_state][action]
+            self.q_table_update(rnd_state, action, reward, current_state) # , done
+
+    def training(self, num_steps=100000):
         """
         Agent training loop
 
@@ -144,57 +129,78 @@ class Tabular_DynaQ_plus():
         total_rewards (list): Sum of all the rewards for each episode
         nb_steps_episodes (list): Number of steps for each episode
         """
-        total_rewards = []
-        nb_steps_episodes = []
-        step = 0
-        self.last_visit_step = self.reset_last_visits()
+        # total_rewards = []
+        # nb_steps_episodes = []
+        # nb_episode = 0
+        # Reset the environment
+        state, _ = self.env.reset(seed=42)
+        done = False
 
-        nb_episode = 0
+        nb_episodes = 0
 
-        for episode in range(num_episodes):
-            # Reset the environment
-            state, _ = self.env.reset(seed=42)
-            done = False
+        for step in range(num_steps):
+            # Get action
+            action = self.eps_greedy_policy(state)
+            # Take step
+            current_state, reward, terminated, truncated,_ = self.env.step(action)
+            done = terminated or truncated
+            # Update Q-table
+            self.q_table_update(state, action, reward, current_state) # , done
+            # Update model
+            self.model_update(state, action, reward, current_state)
+            # Planning
+            self.planning()
+            # Update s
+            # tate for next iteration
+            state = current_state
 
-            total_reward_per_episode = 0.0
-            nb_steps_per_episode = 0.0
+            if done:
+                state, _ = self.env.reset(seed=42)
+                done = False
+                nb_episodes += 1
+            print("nb_episodes ", nb_episodes, "\n")
+        # for episode in range(num_steps):
+        #     # Reset the environment
+        #     state, _ = self.env.reset()
+        #     done = False
 
-            while not done:
-                # Get action
-                action = self.eps_greedy_policy(state)
-                step += 1
-                # Take step
-                current_state, reward, terminated, truncated,_ = self.env.step(action)
-                done = terminated or truncated
-                # Update Q-table
-                self.q_table_update(state, action, reward, current_state) # , done
-                # Update model
-                self.model_update(state, action, reward, current_state)
-                # Update last visit of current state-action pair
-                self.last_visit_step[state][action] = step
-                # Planning
-                self.planning(step)
-                # Update state for next iteration
-                state = current_state
-                total_reward_per_episode += reward
-                nb_steps_per_episode += 1.0
+        #     total_reward_per_episode = 0.0
+        #     nb_steps_per_episode = 0.0
 
-            nb_episode += 1
-            if nb_episode == 3: # We want to plot the Q-values after the 2nd episode
-                # print("q_values ", self.q_table, "\n")
-                self.render_q_values(title="Q-values after 2 episodes")
+        #     while not done:
+        #         # Get action
+        #         action = self.eps_greedy_policy(state)
+        #         # Take step
+        #         current_state, reward, terminated, truncated,_ = self.env.step(action)
+        #         done = terminated or truncated
+        #         # Update Q-table
+        #         self.q_table_update(state, action, reward, current_state) # , done
+        #         # Update model
+        #         self.model_update(state, action, reward, current_state)
+        #         # Planning
+        #         self.planning()
+        #         # Update state for next iteration
+        #         state = current_state
+        #         # total_reward_per_episode += reward
+        #         # nb_steps_per_episode += 1.0
+            
+        #     nb_episode += 1
+            if nb_episodes == 2: # We want to plot the Q-values after the 2nd episode
+                print("q_values ", self.q_table, "\n")
+                # self.render_q_values_After2Episodes()
+                # pass
 
-            total_rewards.append(total_reward_per_episode)
-            nb_steps_episodes.append(nb_steps_per_episode)
-        return total_rewards, nb_steps_episodes
+        #     total_rewards.append(total_reward_per_episode)
+        #     nb_steps_episodes.append(nb_steps_per_episode)
+
+        # return total_rewards, nb_steps_episodes
 
     def eval(self, num_episodes=100):
         total_rewards = []
         nb_steps_episodes = []
-        step = 0
-        self.last_visit_step = self.reset_last_visits()
 
         for episode in range(num_episodes):
+
             # Reset the environment
             state, _ = self.env.reset()
             done = False
@@ -205,14 +211,11 @@ class Tabular_DynaQ_plus():
             while not done:
                 # Get action
                 action = self.eps_greedy_policy(state)
-                step += 1
                 # Take step
                 current_state, reward, terminated, truncated,_ = self.env.step(action)
                 done = terminated or truncated
-                # Update last visit of current state-action pair
-                self.last_visit_step[state][action] = step
                 # Planning
-                self.planning(step)
+                self.planning()
                 # Update state for next iteration
                 state = current_state
                 total_reward_per_episode += reward
@@ -222,7 +225,7 @@ class Tabular_DynaQ_plus():
             nb_steps_episodes.append(nb_steps_per_episode)
 
         # Save data
-        file_path = (Path(__file__).parent.parent / "data/tabular_DynaQ_plus.json").resolve()
+        file_path = (Path(__file__).parent.parent / "data/tabular_DynaQ.json").resolve()
         if not file_path.parent.exists():
             file_path.parent.mkdir()
         data = {"total_rewards":total_rewards, "nb_steps_episodes":nb_steps_episodes}
@@ -231,23 +234,36 @@ class Tabular_DynaQ_plus():
 
         return total_rewards, nb_steps_episodes
 
-    def render_q_values(self, title: str = None):
+    def render_q_values(self):
         q_values = np.zeros(self.env.size)
         for state in self.env.get_states():
             x, y = state
             q_values[x, y] = self.q_table[state].max()
 
-        viridis = get_cmap("viridis", 1024)
-        colors = viridis(np.linspace(0, 1, 1024))
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
         colors[0] = np.array([0., 0., 0., 1.])
         cmap = ListedColormap(colors)
 
-        if np.any(q_values):
-            plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
-            plt.colorbar()
-        else:
-            plt.imshow(q_values.T, origin="lower", cmap=cmap)
-        plt.title(title or "Q-values across environment")
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment")
         plt.show()
 
+    def render_q_values_After2Episodes(self):
+        q_values = np.zeros(self.env.size)
+        for state in self.env.get_states():
+            x, y = state
+            q_values[x, y] = self.q_table[state].max()
 
+        print("q_values ", q_values, "\n")
+
+        viridis = get_cmap("viridis", 256)
+        colors = viridis(np.linspace(0, 1, 256))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
+
+        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+        plt.colorbar()
+        plt.title("Q-values across environment after 2 episodes")
+        plt.show()
