@@ -3,25 +3,48 @@ import matplotlib.pyplot as plt
 
 from algorithms.tabular_dynaQ_plus import Tabular_DynaQ_plus
 from envs.discrete_gridworld import DiscreteGridWorld
+from envs.discrete_gridworld import StochasticDiscreteGridWorld
 
-env = DiscreteGridWorld(size=(10, 10), seed=42)
+# env = DiscreteGridWorld(size=(10, 10), seed=42)
+# env.reset()
+# env.render()
+
+# dynaQ_plus = Tabular_DynaQ_plus(env)
+
+# dynaQ_plus.training(50)
+# total_rewards, nb_steps_episodes = dynaQ_plus.eval()
+
+# print(total_rewards)
+# print(np.mean(total_rewards))
+# print(nb_steps_episodes)
+
+# # Final graph
+# dynaQ_plus.render_q_values()
+
+# plt.plot(nb_steps_episodes)
+# plt.xlabel("Number of episodes")
+# plt.ylabel("Number of steps per episode")
+# plt.show()
+
+
+env = StochasticDiscreteGridWorld(size=(10, 10))
 env.reset()
 env.render()
 
-dynaQ_plus = Tabular_DynaQ_plus(env)
+dynaQ = Tabular_DynaQ_plus(env)
 
-dynaQ_plus.training(50)
-total_rewards, nb_steps_episodes = dynaQ_plus.eval()
+dynaQ.training(50)
+total_rewards, nb_steps_episodes = dynaQ.eval()
 
 print(total_rewards)
 print(np.mean(total_rewards))
 print(nb_steps_episodes)
 
 # Final graph
-dynaQ_plus.render_q_values()
+dynaQ.render_q_values()
+
 
 plt.plot(nb_steps_episodes)
 plt.xlabel("Number of episodes")
 plt.ylabel("Number of steps per episode")
 plt.show()
-

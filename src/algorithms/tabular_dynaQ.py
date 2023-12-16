@@ -161,9 +161,9 @@ class Tabular_DynaQ():
                 nb_steps_per_episode += 1.0
 
             nb_episode += 1
-            if nb_episode == 15: # We want to plot the Q-values after the 2nd episode
+            if nb_episode == 21: # We want to plot the Q-values after the 2nd episode
                 # print("q_values ", self.q_table, "\n")
-                self.render_q_values(title="Q-values after 15 episodes")
+                self.render_q_values(title="Q-values after 21 episodes")
 
             total_rewards.append(total_reward_per_episode)
             nb_steps_episodes.append(nb_steps_per_episode)

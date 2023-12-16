@@ -29,7 +29,7 @@ from envs.discrete_gridworld import StochasticDiscreteGridWorld
 
 
 
-env = StochasticDiscreteGridWorld(size=(10, 10), seed=42)
+env = StochasticDiscreteGridWorld(size=(10, 10))
 env.reset()
 env.render()
 
