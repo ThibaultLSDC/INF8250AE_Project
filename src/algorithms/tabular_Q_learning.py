@@ -17,7 +17,7 @@ from collections import defaultdict
 # Tabular dyna-Q class
 class Tabular_Q_learning():
 
-    def __init__(self, env: gym.Env, step_size=0.1, discount=0.99, epsilon=0.1):
+    def __init__(self, env: gym.Env, step_size=0.1, discount=0.9, epsilon=0.1):
             self.env = env
             self.step_size = step_size  # Learning rate
             self.discount = discount  # Discount factor
@@ -65,7 +65,7 @@ class Tabular_Q_learning():
 
         self.q_table[prev_state][prev_action] = self.q_table[prev_state][prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state][update_action]-self.q_table[prev_state][prev_action])
 
-    def training(self, num_episodes=100):
+    def training(self, num_episodes=200):
         """
         Agent training loop
 
@@ -108,6 +108,10 @@ class Tabular_Q_learning():
             
             if nb_episode == 40: # We want to plot the Q-values after the 2nd episode
                 self.render_q_values(title="Q-values after 40 episodes")
+
+            if nb_episode == 100: # We want to plot the Q-values after the 2nd episode
+                # print("q_values ", self.q_table, "\n")
+                self.render_q_values(title="Q-values after 100 episodes")
                 
 
             total_rewards.append(total_reward_per_episode)

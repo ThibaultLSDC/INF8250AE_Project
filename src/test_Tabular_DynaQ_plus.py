@@ -26,19 +26,24 @@ from envs.discrete_gridworld import StochasticDiscreteGridWorld
 # plt.ylabel("Number of steps per episode")
 # plt.show()
 
-
+# env = DiscreteGridWorld(size=(10, 10), seed=42)
 env = StochasticDiscreteGridWorld(size=(10, 10))
 env.reset()
 env.render()
 
 dynaQ = Tabular_DynaQ_plus(env)
 
-dynaQ.training(50)
-total_rewards, nb_steps_episodes = dynaQ.eval()
-
+total_rewards, nb_steps_episodes = dynaQ.training()
 print(total_rewards)
 print(np.mean(total_rewards))
 print(nb_steps_episodes)
+
+dynaQ.eval()
+# total_rewards, nb_steps_episodes = dynaQ.eval()
+# print(total_rewards)
+# print(np.mean(total_rewards))
+# print(nb_steps_episodes)
+
 
 # Final graph
 dynaQ.render_q_values()

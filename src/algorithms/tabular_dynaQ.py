@@ -23,7 +23,7 @@ class Tabular_DynaQ():
     4. Planning
     """
 
-    def __init__(self, env: gym.Env, step_size=0.1, discount=0.99, epsilon=0.1, planning_steps=5):
+    def __init__(self, env: gym.Env, step_size=0.1, discount=0.9, epsilon=0.1, planning_steps=5):
             self.env = env
             self.step_size = step_size  # Learning rate
             self.discount = discount  # Discount factor
@@ -119,7 +119,7 @@ class Tabular_DynaQ():
             reward, current_state = self.model[rnd_state][action]
             self.q_table_update(rnd_state, action, reward, current_state) # , done
 
-    def training(self, num_episodes=100):
+    def training(self, num_episodes=200):
         """
         Agent training loop
 
@@ -161,9 +161,13 @@ class Tabular_DynaQ():
                 nb_steps_per_episode += 1.0
 
             nb_episode += 1
-            if nb_episode == 21: # We want to plot the Q-values after the 2nd episode
+            if nb_episode == 15: # We want to plot the Q-values after the 2nd episode
                 # print("q_values ", self.q_table, "\n")
-                self.render_q_values(title="Q-values after 21 episodes")
+                self.render_q_values(title="Q-values after 15 episodes")
+
+            if nb_episode == 100: # We want to plot the Q-values after the 2nd episode
+                # print("q_values ", self.q_table, "\n")
+                self.render_q_values(title="Q-values after 100 episodes")
 
             total_rewards.append(total_reward_per_episode)
             nb_steps_episodes.append(nb_steps_per_episode)
