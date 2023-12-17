@@ -54,7 +54,7 @@ The task is essentially the same, with actions and states being continous. This 
 
 #### 1. Tabular Q Planning
 
-Leverages a sample model to learn Q-values
+Leverages a sample model to learn Q-values offline using planning
 
 #### 2. DynaQ
 
