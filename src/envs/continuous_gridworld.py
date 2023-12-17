@@ -143,12 +143,12 @@ class DiscreteContinuousGridWorld(ContinuousGridWorld):
         super().__init__(*args, **kwargs)
         self.action_space = spaces.Discrete(9)
         
-        self._discreet_to_continuous = {i: np.array((np.cos(i * np.pi / 4), np.sin(i * np.pi / 4))) for i in range(8)}
-        self._discreet_to_continuous[8] = np.array((0., 0.))
+        self._discrete_to_continuous = {i: np.array((np.cos(i * np.pi / 4), np.sin(i * np.pi / 4))) for i in range(8)}
+        self._discrete_to_continuous[8] = np.array((0., 0.))
 
     def step(self, action):
         return self._step(self._discretize_action(action))
     
     def _discretize_action(self, action):
-        action = self._discreet_to_continuous[action]
+        action = self._discrete_to_continuous[action]
         return action
