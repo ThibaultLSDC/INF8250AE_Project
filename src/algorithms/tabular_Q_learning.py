@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import gymnasium as gym
 import random
 import json
+from tqdm import tqdm
 
 from matplotlib.colors import ListedColormap, LogNorm
 from matplotlib.cm import get_cmap
@@ -60,12 +61,10 @@ class Tabular_Q_learning():
         env: Custom Grid World environment
         num_episodes (int): Number of iterations for training
         """
-
         update_action = np.argmax(self.q_table[current_state])
-
         self.q_table[prev_state][prev_action] = self.q_table[prev_state][prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state][update_action]-self.q_table[prev_state][prev_action])
 
-    def training(self, num_episodes=200):
+    def training(self, num_steps, eval_step_interval: int = 500, eval: bool = False):
         """
         Agent training loop
 
@@ -78,54 +77,52 @@ class Tabular_Q_learning():
         nb_steps_episodes (list): Number of steps for each episode
         """
 
+        steps_per_episode = []
+        efficiencies = []
+        done = True     # Makes it so that the environmenent is reset when the loop starts
+
+        for step in tqdm(range(num_steps)):
+            if done:
+                state, _ = self.env.reset(seed=42)
+                done = False
+
+            # Get action
+            action = self.eps_greedy_policy(state)
+            # Take step
+            current_state, reward, terminated, truncated,_ = self.env.step(action)
+            done = terminated or truncated
+            # Update Q-table
+            self.q_table_update(state, action, reward, current_state) # , done
+            # Update state for next iteration
+            state = current_state
+
+            if eval and (step == 1000):
+                self.render_q_values(title="Q-values after 1000 steps")
+
+            if eval and not (step % eval_step_interval):
+                _, steps, efficiency = self.eval()
+                steps_per_episode.append(np.mean(steps))
+                efficiencies.append(np.mean(efficiency))
+                done = True
+
+        if eval:
+            plt.subplot(1, 2, 1)
+            plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), steps_per_episode)
+            plt.title(f"Number of steps per episode over {num_steps} training steps")
+            plt.subplot(1, 2, 2)
+            plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), efficiencies)
+            plt.title(f"Path performance relative to shortest path over {num_steps} steps")
+            plt.show()
+
+    def eval(self, num_episodes=25):
         total_rewards = []
-        nb_steps_episodes = []
-        nb_episode = 0
+        num_steps_per_episode = []
+        efficiencies = []
 
-        for episode in range(num_episodes):
-
-            # Reset the environment
-            state, _ = self.env.reset(seed=42)
-            done = False
-
-            total_reward_per_episode = 0.0
-            nb_steps_per_episode = 0.0
-
-            while not done:
-                # Get action
-                action = self.eps_greedy_policy(state)
-                # Take step
-                current_state, reward, terminated, truncated,_ = self.env.step(action)
-                done = terminated or truncated
-                # Update Q-table
-                self.q_table_update(state, action, reward, current_state) # , done
-                # Update state for next iteration
-                state = current_state
-                total_reward_per_episode += reward
-                nb_steps_per_episode += 1.0
-            
-            nb_episode += 1
-            
-            if nb_episode == 40: # We want to plot the Q-values after the 2nd episode
-                self.render_q_values(title="Q-values after 40 episodes")
-
-            if nb_episode == 100: # We want to plot the Q-values after the 2nd episode
-                # print("q_values ", self.q_table, "\n")
-                self.render_q_values(title="Q-values after 100 episodes")
-                
-
-            total_rewards.append(total_reward_per_episode)
-            nb_steps_episodes.append(nb_steps_per_episode)
-        return total_rewards, nb_steps_episodes
-    
-    def eval(self, num_episodes=100):
-        total_rewards = []
-        nb_steps_episodes = []
-
-        for episode in range(num_episodes):
-
+        for _ in range(num_episodes):
             # Reset the environment
             state, _ = self.env.reset()
+            start_state = state
             done = False
 
             total_reward_per_episode = 0.0
@@ -133,7 +130,7 @@ class Tabular_Q_learning():
 
             while not done:
                 # Get action
-                action = self.eps_greedy_policy(state)
+                action = np.argmax(self.q_table[state])
                 # Take step
                 current_state, reward, terminated, truncated,_ = self.env.step(action)
                 done = terminated or truncated
@@ -143,18 +140,23 @@ class Tabular_Q_learning():
                 nb_steps_per_episode += 1.0
 
             total_rewards.append(total_reward_per_episode)
-            nb_steps_episodes.append(nb_steps_per_episode)
+            num_steps_per_episode.append(nb_steps_per_episode)
+            efficiencies.append(self.env.distance_map[start_state[0], start_state[1]] / num_steps_per_episode[-1])
 
         # Save data
         file_path = (Path(__file__).parent.parent / "data/tabular_Q_learning.json").resolve()
         if not file_path.parent.exists():
             file_path.parent.mkdir()
-        data = {"total_rewards":total_rewards, "nb_steps_episodes":nb_steps_episodes}
+        data = {
+            "total_rewards": total_rewards,
+            "num_steps_per_episode": num_steps_per_episode,
+            "efficiencies": efficiencies,
+        }
         with file_path.open("w") as json_file:
             json.dump(data, json_file, indent=4)
 
-        return total_rewards, nb_steps_episodes
-    
+        return total_rewards, num_steps_per_episode, efficiencies
+
     def render_q_values(self, title: str = None):
         q_values = np.zeros(self.env.size)
         for state in self.env.get_states():

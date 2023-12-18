@@ -5,51 +5,38 @@ from algorithms.tabular_dynaQ_plus import Tabular_DynaQ_plus
 from envs.discrete_gridworld import DiscreteGridWorld
 from envs.discrete_gridworld import StochasticDiscreteGridWorld
 
-# env = DiscreteGridWorld(size=(10, 10), seed=42)
-# env.reset()
-# env.render()
+N_TRAINING_STEPS = 10_000
+EVAL_STEP_INTERVAL = N_TRAINING_STEPS // 100
 
-# dynaQ_plus = Tabular_DynaQ_plus(env)
+### Deterministic environment
+env = DiscreteGridWorld(size=(10, 10), seed=42)
+env.reset()
+env.render()
 
-# dynaQ_plus.training(50)
-# total_rewards, nb_steps_episodes = dynaQ_plus.eval()
+dynaQ = Tabular_DynaQ_plus(env)
 
-# print(total_rewards)
-# print(np.mean(total_rewards))
-# print(nb_steps_episodes)
+dynaQ.training(N_TRAINING_STEPS, eval_step_interval=EVAL_STEP_INTERVAL, eval=True)
+total_rewards, nb_steps_episodes, efficiencies = dynaQ.eval(25)
+print(f"Results after {N_TRAINING_STEPS} training steps : ")
+print(f"    - Mean return     : {np.mean(total_rewards)}")
+print(f"    - Mean efficiency : {np.mean(efficiencies)}")
 
-# # Final graph
-# dynaQ_plus.render_q_values()
+# Final graph
+dynaQ.render_q_values()
 
-# plt.plot(nb_steps_episodes)
-# plt.xlabel("Number of episodes")
-# plt.ylabel("Number of steps per episode")
-# plt.show()
 
-# env = DiscreteGridWorld(size=(10, 10), seed=42)
+### Stochatsic environment
 env = StochasticDiscreteGridWorld(size=(10, 10))
 env.reset()
 env.render()
 
 dynaQ = Tabular_DynaQ_plus(env)
 
-total_rewards, nb_steps_episodes = dynaQ.training()
-print(total_rewards)
-print(np.mean(total_rewards))
-print(nb_steps_episodes)
-
-dynaQ.eval()
-# total_rewards, nb_steps_episodes = dynaQ.eval()
-# print(total_rewards)
-# print(np.mean(total_rewards))
-# print(nb_steps_episodes)
-
+dynaQ.training(N_TRAINING_STEPS, eval_step_interval=EVAL_STEP_INTERVAL, eval=True)
+total_rewards, nb_steps_episodes, efficiencies = dynaQ.eval(25)
+print(f"Results after {N_TRAINING_STEPS} training steps : ")
+print(f"    - Mean return     : {np.mean(total_rewards)}")
+print(f"    - Mean efficiency : {np.mean(efficiencies)}")
 
 # Final graph
 dynaQ.render_q_values()
-
-
-plt.plot(nb_steps_episodes)
-plt.xlabel("Number of episodes")
-plt.ylabel("Number of steps per episode")
-plt.show()

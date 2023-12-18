@@ -3,6 +3,7 @@ from gymnasium import spaces
 import numpy as np
 import pygame as pg
 import skimage.measure as skimg
+from queue import Queue
 
 
 class DiscreteGridWorld(gym.Env):
@@ -39,6 +40,7 @@ class DiscreteGridWorld(gym.Env):
             self._generate_obstacles()
 
         self.fill_holes()
+        self.distance_map = self.generate_distance_map()
 
         # Rendering
         self.render_mode = render_mode
@@ -65,6 +67,25 @@ class DiscreteGridWorld(gym.Env):
 
     def fill_holes(self):
         self.obstacles[self.region_labels != self.region_labels[self.goal[0], self.goal[1]]] = True
+
+    def generate_distance_map(self):
+        directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+        distance_map = np.inf * np.ones_like(self.obstacles)
+        distance_map[self.goal[0], self.goal[1]] = 0
+        exploration_queue = Queue()
+        exploration_queue.put(self.goal)
+
+        while not exploration_queue.empty():
+            state = exploration_queue.get()
+            for direction in directions:
+                nx, ny = state[0] + direction[0], state[1] + direction[1]
+                if (0 <= nx < self.size[0]) and (0 <= ny < self.size[1]) and not self.obstacles[nx, ny]:
+                    new_distance = min(distance_map[nx, ny], distance_map[state[0], state[1]] + 1)
+                    if new_distance < distance_map[nx, ny]:
+                        distance_map[nx, ny] = new_distance
+                        exploration_queue.put((nx, ny))
+
+        return distance_map
 
     def reset(self, **kwargs):
         self.position = self.observation_space.sample().astype(np.int32).clip(0, self.goal)
@@ -171,10 +192,12 @@ class StochasticDiscreteGridWorld(DiscreteGridWorld):
                  max_steps=1000,
                  render_mode='human',
                  obstacles: np.ndarray = None,
+                 goal_region_min_size: float = 0.25,
+                 seed: int = 42,
                  stochasticity=0.,
                  ):
 
-        super().__init__(size, max_steps, render_mode, obstacles)
+        super().__init__(size, max_steps, render_mode, obstacles, goal_region_min_size, seed)
         self.stochasticity = stochasticity
 
     def _update_action(self, action):

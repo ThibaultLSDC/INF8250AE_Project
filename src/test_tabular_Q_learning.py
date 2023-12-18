@@ -5,46 +5,38 @@ from algorithms.tabular_Q_learning import Tabular_Q_learning
 from envs.discrete_gridworld import DiscreteGridWorld
 from envs.discrete_gridworld import StochasticDiscreteGridWorld
 
-# env = DiscreteGridWorld(size=(10,10))
-# env.reset(seed=42)
-# env.render()
+N_TRAINING_STEPS = 250_000
+EVAL_STEP_INTERVAL = N_TRAINING_STEPS // 100
 
-# Q_learning = Tabular_Q_learning(env)
+### Deterministic environment
+env = DiscreteGridWorld(size=(10, 10), seed=42)
+env.reset()
+env.render()
 
-# Q_learning.training(50)
-# total_rewards, nb_steps_episodes = Q_learning.eval()
+qLearning_model = Tabular_Q_learning(env)
 
-# print(total_rewards)
-# print(np.mean(total_rewards))
-# print(nb_steps_episodes)
+qLearning_model.training(N_TRAINING_STEPS, eval_step_interval=EVAL_STEP_INTERVAL, eval=True)
+total_rewards, nb_steps_episodes, efficiencies = qLearning_model.eval(25)
+print(f"Results after {N_TRAINING_STEPS} training steps : ")
+print(f"    - Mean return     : {np.mean(total_rewards)}")
+print(f"    - Mean efficiency : {np.mean(efficiencies)}")
 
-# # Final graph
-# Q_learning.render_q_values()
+# Final graph
+qLearning_model.render_q_values()
 
-# env = DiscreteGridWorld(size=(10, 10), seed=42)
+
+### Stochatsic environment
 env = StochasticDiscreteGridWorld(size=(10, 10))
 env.reset()
 env.render()
 
-Q_learning = Tabular_Q_learning(env)
+qLearning_model = Tabular_Q_learning(env)
 
-total_rewards, nb_steps_episodes = Q_learning.training()
-print(total_rewards)
-print(np.mean(total_rewards))
-print(nb_steps_episodes)
-Q_learning.eval()
-
-# total_rewards, nb_steps_episodes = Q_learning.eval()
-# print(total_rewards)
-# print(np.mean(total_rewards))
-# print(nb_steps_episodes)
-
+qLearning_model.training(N_TRAINING_STEPS, eval_step_interval=EVAL_STEP_INTERVAL, eval=True)
+total_rewards, nb_steps_episodes, efficiencies = qLearning_model.eval(25)
+print(f"Results after {N_TRAINING_STEPS} training steps : ")
+print(f"    - Mean return     : {np.mean(total_rewards)}")
+print(f"    - Mean efficiency : {np.mean(efficiencies)}")
 
 # Final graph
-Q_learning.render_q_values()
-
-
-plt.plot(nb_steps_episodes)
-plt.xlabel("Number of episodes")
-plt.ylabel("Number of steps per episode")
-plt.show()
+qLearning_model.render_q_values()

@@ -1,4 +1,5 @@
 # Import packages
+import copy
 import json
 from pathlib import Path
 import numpy as np
@@ -7,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import gymnasium as gym
+from tqdm import tqdm
 
 from matplotlib.colors import ListedColormap, LogNorm
 from matplotlib.cm import get_cmap
@@ -39,8 +41,6 @@ class Tabular_DynaQ_plus():
         self.model = self.reset_model()
         self.last_visit_step = self.reset_last_visits()
         self.kappa = kappa
-
-        self.null_state = tuple(np.zeros(self.env.observation_space.shape, dtype=self.env.observation_space.dtype))
 
     def eps_greedy_policy(self, current_state):
         """
@@ -92,7 +92,8 @@ class Tabular_DynaQ_plus():
         model (defaultdict): Model of the env with (state, action)
             as keys and (reward, next_state)
         """
-        model = defaultdict(lambda: [(0., self.null_state) for _ in range(self.action_space_size)])
+        null_state = tuple(np.zeros(self.env.observation_space.shape, dtype=self.env.observation_space.dtype))
+        model = defaultdict(lambda: [(0., null_state) for _ in range(self.action_space_size)])
         return model
 
     def reset_last_visits(self):
@@ -132,7 +133,7 @@ class Tabular_DynaQ_plus():
             reward += self.kappa * np.sqrt(current_step - self.last_visit_step[rnd_state][action])
             self.q_table_update(rnd_state, action, reward, next_state) # , done
 
-    def training(self, num_episodes=200):
+    def training(self, num_steps, eval_step_interval: int = 500, eval: bool = False):
         """
         Agent training loop
 
@@ -144,63 +145,59 @@ class Tabular_DynaQ_plus():
         total_rewards (list): Sum of all the rewards for each episode
         nb_steps_episodes (list): Number of steps for each episode
         """
-        total_rewards = []
-        nb_steps_episodes = []
-        step = 0
+        steps_per_episode = []
+        efficiencies = []
         self.last_visit_step = self.reset_last_visits()
+        done = True     # Makes it so that the environmenent is reset when the loop starts
 
-        nb_episode = 0
+        for step in tqdm(range(num_steps)):
+            if done:
+                state, _ = self.env.reset(seed=42)
+                done = False
 
-        for episode in range(num_episodes):
-            # Reset the environment
-            state, _ = self.env.reset(seed=42)
-            done = False
+            # Get action
+            action = self.eps_greedy_policy(state)
+            # Take step
+            current_state, reward, terminated, truncated, _ = self.env.step(action)
+            done = terminated or truncated
+            # Update Q-table
+            self.q_table_update(state, action, reward, current_state) # , done
+            # Update model
+            self.model_update(state, action, reward, current_state)
+            # Update last visit of current state-action pair
+            self.last_visit_step[state][action] = step
+            # Planning
+            self.planning(step)
+            # Update state for next iteration
+            state = current_state
 
-            total_reward_per_episode = 0.0
-            nb_steps_per_episode = 0.0
+            if eval and (step == 1000):
+                self.render_q_values(title="Q-values after 1000 steps")
 
-            while not done:
-                # Get action
-                action = self.eps_greedy_policy(state)
-                step += 1
-                # Take step
-                current_state, reward, terminated, truncated,_ = self.env.step(action)
-                done = terminated or truncated
-                # Update Q-table
-                self.q_table_update(state, action, reward, current_state) # , done
-                # Update model
-                self.model_update(state, action, reward, current_state)
-                # Update last visit of current state-action pair
-                self.last_visit_step[state][action] = step
-                # Planning
-                self.planning(step)
-                # Update state for next iteration
-                state = current_state
-                total_reward_per_episode += reward
-                nb_steps_per_episode += 1.0
+            if eval and not (step % eval_step_interval):
+                _, steps, efficiency = self.eval()
+                steps_per_episode.append(np.mean(steps))
+                efficiencies.append(np.mean(efficiency))
+                done = True
 
-            nb_episode += 1
-            if nb_episode == 2: # We want to plot the Q-values after the 2nd episode
-                # print("q_values ", self.q_table, "\n")
-                self.render_q_values(title="Q-values after 2 episodes")
-            
-            if nb_episode == 100: # We want to plot the Q-values after the 2nd episode
-                # print("q_values ", self.q_table, "\n")
-                self.render_q_values(title="Q-values after 100 episodes")
+        if eval:
+            plt.subplot(1, 2, 1)
+            plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), steps_per_episode)
+            plt.title(f"Number of steps per episode over {num_steps} training steps")
+            plt.subplot(1, 2, 2)
+            plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), efficiencies)
+            plt.title(f"Path performance relative to shortest path over {num_steps} steps")
+            plt.show()
 
-            total_rewards.append(total_reward_per_episode)
-            nb_steps_episodes.append(nb_steps_per_episode)
-        return total_rewards, nb_steps_episodes
-
-    def eval(self, num_episodes=100):
+    def eval(self, num_episodes=25):
         total_rewards = []
-        nb_steps_episodes = []
-        step = 0
-        self.last_visit_step = self.reset_last_visits()
+        num_steps_per_episode = []
+        efficiencies = []
 
-        for episode in range(num_episodes):
+        for _ in range(num_episodes):
             # Reset the environment
             state, _ = self.env.reset()
+            start_state = state
             done = False
 
             total_reward_per_episode = 0.0
@@ -208,32 +205,32 @@ class Tabular_DynaQ_plus():
 
             while not done:
                 # Get action
-                action = self.eps_greedy_policy(state)
-                step += 1
+                action = np.argmax(self.q_table[state])
                 # Take step
                 current_state, reward, terminated, truncated,_ = self.env.step(action)
                 done = terminated or truncated
-                # Update last visit of current state-action pair
-                self.last_visit_step[state][action] = step
-                # Planning
-                self.planning(step)
                 # Update state for next iteration
                 state = current_state
                 total_reward_per_episode += reward
                 nb_steps_per_episode += 1.0
 
             total_rewards.append(total_reward_per_episode)
-            nb_steps_episodes.append(nb_steps_per_episode)
+            num_steps_per_episode.append(nb_steps_per_episode)
+            efficiencies.append(self.env.distance_map[start_state[0], start_state[1]] / num_steps_per_episode[-1])
 
         # Save data
         file_path = (Path(__file__).parent.parent / "data/tabular_DynaQ_plus.json").resolve()
         if not file_path.parent.exists():
             file_path.parent.mkdir()
-        data = {"total_rewards":total_rewards, "nb_steps_episodes":nb_steps_episodes}
+        data = {
+            "total_rewards": total_rewards,
+            "num_steps_per_episode": num_steps_per_episode,
+            "efficiencies": efficiencies,
+        }
         with file_path.open("w") as json_file:
             json.dump(data, json_file, indent=4)
 
-        return total_rewards, nb_steps_episodes
+        return total_rewards, num_steps_per_episode, efficiencies
 
     def render_q_values(self, title: str = None):
         q_values = np.zeros(self.env.size)

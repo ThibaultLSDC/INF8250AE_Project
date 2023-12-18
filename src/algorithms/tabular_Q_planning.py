@@ -1,4 +1,6 @@
 # Import packages
+import json
+from pathlib import Path
 from typing import Any
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import gymnasium as gym
 from collections import defaultdict
+from tqdm import tqdm
 
 from matplotlib.colors import ListedColormap, LogNorm
 from matplotlib.cm import get_cmap
@@ -56,15 +59,17 @@ class Q_Planner():
         update_action = np.argmax(self.q_table[current_state])
         self.q_table[prev_state][prev_action] = self.q_table[prev_state][prev_action] + self.step_size*(prev_reward+self.discount*self.q_table[current_state][update_action]-self.q_table[prev_state][prev_action])
 
-    def training(self, num_steps):
+    def training(self, num_steps, eval_step_interval: int = 500, eval: bool = False):
         """
         Agent training loop
 
         Input:
         num_steps (int): Number of iterations for training
         """
+        steps_per_episode = []
+        efficiencies = []
         self.env.reset()
-        for step in range(num_steps):
+        for step in tqdm(range(num_steps)):
             state = tuple(self.env.observation_space.sample())
             while self.env.obstacles[state[0], state[1]]:
                 state = tuple(self.env.observation_space.sample())
@@ -73,14 +78,30 @@ class Q_Planner():
 
             self.q_table_update(state, action, reward, next_state)
 
-            if step == 1000:
+            if eval and (step == 1000):
                 self.render_q_values(title="Q-values after 1000 steps")
+
+            if eval and not (step % eval_step_interval):
+                _, steps, efficiency = self.eval()
+                steps_per_episode.append(np.mean(steps))
+                efficiencies.append(np.mean(efficiency))
+
+        if eval:
+            plt.subplot(1, 2, 1)
+            plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), steps_per_episode)
+            plt.title(f"Number of steps per episode over {num_steps} training steps")
+            plt.subplot(1, 2, 2)
+            plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), efficiencies)
+            plt.title(f"Path performance relative to shortest path over {num_steps} steps")
+            plt.show()
 
     def eval(self, num_episodes: int = 25):
         returns = []
         num_steps_per_episode = []
+        efficiencies = []
         for episode in range(num_episodes):
             state, _ = self.env.reset()
+            start_state = state
             done = False
             returns.append(0.)
             num_steps_per_episode.append(0)
@@ -92,20 +113,36 @@ class Q_Planner():
                 num_steps_per_episode[-1] += 1
                 state = next_state
 
-        return returns, num_steps_per_episode
+            efficiencies.append(self.env.distance_map[start_state[0], start_state[1]] / num_steps_per_episode[-1])
 
-    def render_q_values(self):
+        # Save data
+        file_path = (Path(__file__).parent.parent / "data/tabular_DynaQ_plus.json").resolve()
+        if not file_path.parent.exists():
+            file_path.parent.mkdir()
+        data = {
+            "num_steps_per_episode": num_steps_per_episode,
+            "efficiencies": efficiencies,
+        }
+        with file_path.open("w") as json_file:
+            json.dump(data, json_file, indent=4)
+
+        return returns, num_steps_per_episode, efficiencies
+
+    def render_q_values(self, title: str = None):
         q_values = np.zeros(self.env.size)
         for state in self.env.get_states():
             x, y = state
             q_values[x, y] = self.q_table[state].max()
 
-        viridis = get_cmap("viridis", 256)
-        colors = viridis(np.linspace(0, 1, 256))
+        viridis = get_cmap("viridis", 1024)
+        colors = viridis(np.linspace(0, 1, 1024))
         colors[0] = np.array([0., 0., 0., 1.])
         cmap = ListedColormap(colors)
 
-        plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
-        plt.colorbar()
-        plt.title("Q-values across environment")
+        if np.any(q_values):
+            plt.imshow(q_values.T, origin="lower", cmap=cmap, norm=LogNorm(clip=True))
+            plt.colorbar()
+        else:
+            plt.imshow(q_values.T, origin="lower", cmap=cmap)
+        plt.title(title or "Q-values across environment")
         plt.show()
