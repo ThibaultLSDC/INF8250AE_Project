@@ -21,3 +21,5 @@ Mean efficiency: 0.8423599999999999
 - Stochastic discrete env
 Mean return: 0.76
 Mean efficiency: 0.7520514285714286
+
+Need to define the path performance relative to the shortest path and the mean efficiency*****

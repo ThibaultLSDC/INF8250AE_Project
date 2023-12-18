@@ -183,10 +183,10 @@ class Tabular_DynaQ_plus():
         if eval:
             plt.subplot(1, 2, 1)
             plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), steps_per_episode)
-            plt.title(f"Number of steps per episode over {num_steps} training steps")
+            plt.title(f"Number of steps per episode \n over {num_steps} training steps")
             plt.subplot(1, 2, 2)
             plt.plot(eval_step_interval * np.arange(len(steps_per_episode)), efficiencies)
-            plt.title(f"Path performance relative to shortest path over {num_steps} steps")
+            plt.title(f"Path performance relative to \n shortest path over {num_steps} steps")
             plt.show()
 
     def eval(self, num_episodes=25):
