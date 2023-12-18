@@ -1,0 +1,23 @@
+Q-learning
+- Discrete env
+Mean return: 1.0
+Mean efficiency: 0.9871794871794871
+- Stochastic discrete env
+Mean return: 1.0
+Mean efficiency: 0.92
+
+Dyna-Q
+- Discrete env
+Mean return: 1.0
+Mean efficiency: 0.9338461538461539
+- Stochastic discrete env
+Mean return: 1.0
+Mean efficiency: 0.9555555555555556
+
+Dyna-Q+
+- Discrete env
+Mean return: 0.84
+Mean efficiency: 0.8423599999999999
+- Stochastic discrete env
+Mean return: 0.76
+Mean efficiency: 0.7520514285714286
