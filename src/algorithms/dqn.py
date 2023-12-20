@@ -87,12 +87,12 @@ class DQN():
         self.opt.step()
         return loss.item()
 
-    def train(self, steps=10000):
+    def train(self, steps=10000, eval_freq=100, eval_eps=10):
         state = self.env.reset()
         state = self.process_state(state)
         done = False
         counter = tqdm(range(steps))
-        losses = []
+        metrics = {'loss': [], 'length': [], 'std': []}
         for step in counter:
             if step < 2000:
                 action = self.env.action_space.sample()
@@ -107,26 +107,33 @@ class DQN():
                 state = self.env.reset()
                 state = self.process_state(state)
 
-            if len(self.buffer) > 2000:
-                # self.env.render()
+            if len(self.buffer) > 1999:
+                if step % eval_freq == 0:
+                    l, std = self.test(episodes=eval_eps, render=False)
+                    metrics['length'].append(l)
+                    metrics['std'].append(std)
                 batch = self.get_batch()
-                loss_q = self.learn_q(*batch)
-                losses.append(loss_q)
+                metrics['loss'].append(self.learn_q(*batch))
                 self.update_target()
-                counter.set_description(f"Q loss: {sum(losses[-100:]) / len(losses[-100:]):.5f}")
-        return losses
-    
-    def test(self, steps=10000):
-        state = self.env.reset()
-        state = self.process_state(state)
-        done = False
-        for _ in tqdm(range(steps)):
-            action = self.act(state, greedy=False)
-            next_state, reward, terminated, truncated, _ = self.env.step(action)
-            next_state = self.process_state(next_state)
-            self.env.render()
-            done = terminated or truncated
-            state = next_state
-            if done:
-                state = self.env.reset()
-                state = self.process_state(state)
+                d = f"Loss: {np.mean(metrics['loss'][-100:]):.5f} | Length: {np.mean(metrics['length'][-10:]):.3f}"
+                counter.set_description(d)
+        return metrics
+                
+    def test(self, episodes=1, render=False):
+        length = []
+        for _ in range(episodes):
+            state = self.env.reset()
+            state = self.process_state(state)
+            done = False
+            l = 0
+            while not done:
+                l += 1
+                if render: self.env.render()
+                action = self.act(state, greedy=True)
+                next_state, reward, terminated, truncated, _ = self.env.step(action)
+                next_state = self.process_state(next_state)
+                done = terminated or truncated
+                state = next_state
+                state = next_state
+            length.append(l)
+        return np.array(length).mean(), np.array(length).std()

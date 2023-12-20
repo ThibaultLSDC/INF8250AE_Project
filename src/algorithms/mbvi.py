@@ -1,11 +1,14 @@
 from copy import deepcopy
 import time
+from matplotlib import pyplot as plt
+from matplotlib.cm import get_cmap
+from matplotlib.colors import ListedColormap, LogNorm
 import numpy as np
 from typing import TYPE_CHECKING, Tuple
 
 from tqdm import tqdm
 
-from src.algorithms.world_models import WorldModel, StochasticWorldModel
+from algorithms.world_models import WorldModel, StochasticWorldModel
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -16,20 +19,27 @@ def random_argmax(values: np.ndarray) -> int:
 
 
 class MBValueIteration:
+
     def __init__(self,
-                env_size: int,
-                action_size: int,
+                env: 'gym.Env',
+                eval_env: 'gym.Env',
                 gamma: float,
                 epsilon: float,
                 update_steps: int = 10,
+                name="mbvi",
+                folder="."
                 ) -> None:
-        self.env_size = env_size
-        self.action_size = action_size
+        self.name = name
+        self.folder = folder
+        self.env = env
+        self.eval_env = eval_env
+        self.env_size = env.size
+        self.action_size = env.action_space.n
         self.gamma = gamma
         self.epsilon = epsilon
         self.update_steps = update_steps
 
-        self.model = WorldModel(env_size, action_size)
+        self.model = WorldModel(self.env_size, self.action_size)
 
         self.values = {}
         self.policy = {}
@@ -65,68 +75,117 @@ class MBValueIteration:
                 q[action] = reward + self.gamma * self.values.get(next_state, 0)
             self.policy[state] = random_argmax(q)
     
-    def train(self, env: 'gym.Env', num_steps: int, eval_freq: int, eval_eps, render: bool=False) -> None:
-        state, _ = env.reset()
+    def train(self, num_steps: int, eval_freq: int, eval_eps, render: bool=False, value_render_steps=[]) -> None:
+        state, _ = self.env.reset()
         done = False
         lengths = []
-        stds = []
+        length_stds = []
+        eff = []
+        eff_stds = []
         for step in tqdm(range(num_steps)):
             action = self.act(state)
-            next_state, reward, terminated, truncated, _ = env.step(action)
-            if render: env.render()
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            if render: self.env.render()
             done = terminated or truncated
             self.model.update(state, action, next_state, reward)
             state = next_state
             for _ in range(self.update_steps):
                 self.update()
             if done:
-                state, _ = env.reset()
+                state, _ = self.env.reset()
             else:
                 state = next_state
     
             if step % eval_freq == 0:
-                l, std = self.test(deepcopy(env), eval_eps, render=False)
+                l, std, e, std_e = self.test(eval_eps, render=False)
                 lengths.append(l)
-                stds.append(std)
-        return lengths, stds
+                length_stds.append(std)
+                eff.append(e)
+                eff_stds.append(std_e)
+            
+            if step in value_render_steps:
+                if self.name == "mbvi":
+                    title = f"Model Based Value Iteration Values: {step} steps"
+                else:
+                    title = f"Stochastic Model Based Value Iteration Values: {step} steps"
+                path = f"{self.folder}/values_{self.name}_{step}.png"
+                self.render_values(title=title,
+                                   save=True,
+                                   filename=path)
+        return lengths, length_stds, eff, eff_stds
 
-    def test(self, env: 'gym.Env', num_episodes: int, render: bool=True) -> None:
+    def test(self, num_episodes: int, render: bool=True) -> None:
         length = []
+        efficiency = []
         for _ in range(num_episodes):
-            state, _ = env.reset()
+            state, _ = self.eval_env.reset()
+            start_state = state
             done = False
             steps = 0
             while not done:
                 steps += 1
-                if render: env.render()
+                if render: self.eval_env.render()
                 action = self.act(state, greedy=True)
-                next_state, reward, terminated, truncated, _ = env.step(action)
+                next_state, reward, terminated, truncated, _ = self.eval_env.step(action)
                 done = terminated or truncated
                 state = next_state
                 if done:
-                    state, _ = env.reset()
+                    state, _ = self.eval_env.reset()
                 else:
                     state = next_state
             length.append(steps)
-        return np.array(length).mean(), np.array(length).std()
+            efficiency.append(self.eval_env.distance_map[start_state[0], start_state[1]] / steps)
+        return np.array(length).mean(), np.array(length).std(), np.array(efficiency).mean(), np.array(efficiency).std()
+    
+    def render_values(self, title: str = None, save=False, filename="values.png"):
+        if isinstance(self.values, dict):
+            values = [self.values.get(state, 0) for state in range(self.env_size[0] * self.env_size[1])]
+        else:
+            values = self.values
+        values = np.array(values, dtype=float).reshape(self.env_size)
+        
+        for i in range(self.env_size[0]):
+            for j in range(self.env_size[1]):
+                if self.env.obstacles[i, j]:
+                    values[i, j] = 0.
+
+        viridis = get_cmap("viridis", 1024)
+        colors = viridis(np.linspace(0, 1, 1024))
+        colors[0] = np.array([0., 0., 0., 1.])
+        cmap = ListedColormap(colors)
+
+        if np.any(values):
+            plt.imshow(values.T, origin="lower", cmap=cmap)
+            plt.colorbar()
+        else:
+            plt.imshow(values.T, origin="lower", cmap=cmap)
+        plt.title(title or "Q-values across environment")
+
+        if save:
+            plt.savefig(filename)
+        else:
+            plt.show()
+        plt.close()
+
 
 
 class StochasticMBValueIteration(MBValueIteration):
     def __init__(self,
                  env: 'gym.Env',
+                 eval_env: 'gym.Env',
                  gamma: float,
                  epsilon: float,
                  update_steps: int = 10,
+                 name="stochastic_mbvi",
+                 model_update_size: float = 0.1
                  ) -> None:
-        super().__init__(env.size[0] * env.size[1], env.action_space.n, gamma, epsilon, update_steps)
-        self.env_size = env.size
-        self.env_len = env.size[0] * env.size[1]
-        self.action_size = env.action_space.n
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.update_steps = update_steps
+        super().__init__(env, eval_env, gamma, epsilon, update_steps, name)
 
-        self.model = StochasticWorldModel(env, update_size=0.1)
+        self.env_len = env.size[0] * env.size[1]
+
+        self.model = StochasticWorldModel(env, update_size=model_update_size)
+        # Setting last state to be terminal
+        self.model.model[self.env_len-1][0] *= 0
 
         self.values = [0] * self.env_len
         self.policy = [np.random.randint(0, self.action_size) for _ in range(self.env_len)]
