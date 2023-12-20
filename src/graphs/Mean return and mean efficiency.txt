@@ -4,7 +4,7 @@ Mean return: 1.0
 Mean efficiency: 0.9871794871794871
 - Stochastic discrete env
 Mean return: 1.0
-Mean efficiency: 0.92
+Mean efficiency: 0.465239883731777
 
 Dyna-Q
 - Discrete env
@@ -12,14 +12,14 @@ Mean return: 1.0
 Mean efficiency: 0.9338461538461539
 - Stochastic discrete env
 Mean return: 1.0
-Mean efficiency: 0.9555555555555556
+Mean efficiency: 0.4299377372905222
 
 Dyna-Q+
 - Discrete env
-Mean return: 0.84
-Mean efficiency: 0.8423599999999999
+Mean return: 1.0
+Mean efficiency: 0.9800751879699249
 - Stochastic discrete env
-Mean return: 0.76
-Mean efficiency: 0.7520514285714286
+Mean return: 1.0
+Mean efficiency: 0.3921672157491472
 
 Need to define the path performance relative to the shortest path and the mean efficiency*****

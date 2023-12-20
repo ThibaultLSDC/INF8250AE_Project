@@ -194,7 +194,7 @@ class StochasticDiscreteGridWorld(DiscreteGridWorld):
                  obstacles: np.ndarray = None,
                  goal_region_min_size: float = 0.25,
                  seed: int = 42,
-                 stochasticity=0.,
+                 stochasticity=0.5,
                  ):
 
         super().__init__(size, max_steps, render_mode, obstacles, goal_region_min_size, seed)
