@@ -4,7 +4,7 @@ from algorithms.tabular_dynaQ import Tabular_DynaQ
 from envs.discrete_gridworld import DiscreteGridWorld, StochasticDiscreteGridWorld
 from algorithms.tabular_Q_planning import TabularModel, Q_Planner
 
-N_TRAINING_STEPS = 10_000
+N_TRAINING_STEPS = 20_000
 EVAL_STEP_INTERVAL = N_TRAINING_STEPS // 100
 
 # Deterministic environment
